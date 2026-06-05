@@ -832,11 +832,11 @@
   </div>
   <div class="config-field">
     <label class="config-label">Ammo Tracker DB ID</label>
-    <input class="config-input" type="text" id="cfg-ammo-db" value="31a48b32-cb0b-8126-a070-000b6d9b0b4b" placeholder="collection UUID">
+    <input class="config-input" type="text" id="cfg-ammo-db" value="31a48b32-cb0b-81c5-990d-df543b2cfc67" placeholder="database page ID">
   </div>
   <div class="config-field">
     <label class="config-label">Range Log DB ID</label>
-    <input class="config-input" type="text" id="cfg-range-db" value="31a48b32-cb0b-8091-81f8-000b131c2db0" placeholder="collection UUID">
+    <input class="config-input" type="text" id="cfg-range-db" value="31a48b32-cb0b-80ce-afdb-efa788fcdc74" placeholder="database page ID">
   </div>
   <div class="config-field">
     <label class="config-label">CORS Proxy URL</label>
@@ -1161,8 +1161,8 @@
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const CFG = {
   get token()      { return localStorage.getItem('tams_token') || ''; },
-  get ammoDb()     { return localStorage.getItem('tams_ammo_db') || '31a48b32-cb0b-8126-a070-000b6d9b0b4b'; },
-  get rangeDb()    { return localStorage.getItem('tams_range_db') || '31a48b32-cb0b-8091-81f8-000b131c2db0'; },
+  get ammoDb()     { return localStorage.getItem('tams_ammo_db') || '31a48b32-cb0b-81c5-990d-df543b2cfc67'; },
+  get rangeDb()    { return localStorage.getItem('tams_range_db') || '31a48b32-cb0b-80ce-afdb-efa788fcdc74'; },
   get proxy()      { return localStorage.getItem('tams_proxy') || 'https://corsproxy.io/?url='; },
   get anthropic()  { return localStorage.getItem('tams_anthropic') || ''; },
 };
@@ -2349,7 +2349,7 @@ function w3RenderResults(selected, results, avgPaidMap) {
 }
 
 // ─── WIDGET 4: CONSTANTS ──────────────────────────────────────────────────────
-const W4_DB_ID  = '31a48b32-cb0b-8016-8e30-000bf92a9281'; // Wishlist data source
+const W4_DB_ID  = '31a48b32-cb0b-80d3-ade1-f49144939c3d'; // Wishlist database page ID
 let w4Items     = []; // active Watching items loaded from Notion
 let w4NewEntry  = null; // pending new item awaiting confirmation
 
