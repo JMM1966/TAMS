@@ -2664,6 +2664,10 @@ Use the model/UPC as the "model" field exactly as given. Items:
 ${itemList}`;
 
     const raw  = await fetchWithClaude(prompt);
+
+    // DEBUG: always show raw response temporarily
+    setFeedback('w4-feedback', 'RAW RESPONSE:\n\n' + (raw || '(empty)'), '');
+
     let results = [];
     try {
       const m = raw.match(/\[[\s\S]*\]/);
