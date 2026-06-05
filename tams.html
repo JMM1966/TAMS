@@ -2432,6 +2432,7 @@ async function w4LoadWatchlist() {
         targetPrice:  pr['Target Price']?.number || null,
         lastPrice:    pr['Last Checked Price']?.number || null,
         lastDate:     pr['Last Checked Date']?.date?.start || null,
+        lastRetailer: '',
       };
     });
     w4RenderWatchlist();
@@ -2469,7 +2470,7 @@ function w4RenderWatchlist() {
       <div class="w4-card">
         <div>
           <div class="w4-card-name">${escH(item.name)}</div>
-          <div class="w4-card-meta">${escH(item.model)} · checked ${escH(lastDate)}</div>
+          <div class="w4-card-meta">${escH(item.model)} · checked ${escH(item.lastDate || '—')}${item.lastRetailer ? ' · ' + escH(item.lastRetailer) : ''}</div>
           ${badgeHtml}
           <div class="w4-card-prices">
             <div class="w4-price-block">
@@ -2685,11 +2686,12 @@ ${itemList}`;
     for (const item of w4Items) {
       const match = results.find(r =>
         r.model === item.model ||
-        (r.name || '').toLowerCase().includes(item.name.toLowerCase().split(' ')[0])
+        r.model === item.model.replace(/\s/g,'') // strip spaces
       );
       if (match && match.price) {
-        item.lastPrice = match.price;
-        item.lastDate  = today;
+        item.lastPrice    = match.price;
+        item.lastDate     = today;
+        item.lastRetailer = match.retailer || '';
         try {
           await notionUpdate(item.id, {
             'Last Checked Price': { number: match.price },
