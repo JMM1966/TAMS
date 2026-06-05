@@ -1191,6 +1191,7 @@ function saveConfig() {
   closeConfig();
   updateStatus();
   if (CFG.token) { loadInventory().then(() => w2PopulateDropdowns()); }
+  w4LoadWatchlist();
   setFeedback('w1-feedback', 'Config saved.', 'success');
 }
 
@@ -2352,10 +2353,13 @@ let w4NewEntry  = null; // pending new item awaiting confirmation
 
 // ─── WIDGET 4: LOAD WATCHLIST ────────────────────────────────────────────────
 async function w4LoadWatchlist() {
+  const container = document.getElementById('w4-watchlist');
+  const loading   = document.getElementById('w4-loading');
   if (!CFG.token) {
-    document.getElementById('w4-loading').textContent = '⚠ Configure Notion token to load wishlist.';
+    if (loading) loading.textContent = '⚠ Configure Notion token to load wishlist.';
     return;
   }
+  if (loading) loading.innerHTML = '<span class="spinner"></span> Loading from Notion...';
   try {
     const data = await notionQuery(W4_DB_ID,
       { property: 'Status', select: { equals: 'Watching' } },
