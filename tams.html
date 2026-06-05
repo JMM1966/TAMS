@@ -2053,7 +2053,7 @@ async function fetchWithClaude(prompt) {
 
   const baseBody = {
     model: 'claude-sonnet-4-6',
-    max_tokens: 2000,
+    max_tokens: 1500,
     tools: [{ type: 'web_search_20250305', name: 'web_search' }],
   };
 
@@ -2076,7 +2076,7 @@ async function fetchWithClaude(prompt) {
 
   // Agentic loop: keep going while Claude wants to use tools
   let iterations = 0;
-  while (data.stop_reason === 'tool_use' && iterations < 5) {
+  while (data.stop_reason === 'tool_use' && iterations < 3) {
     iterations++;
     const assistantContent = data.content || [];
 
@@ -2297,15 +2297,16 @@ async function checkAmmoPrices() {
       return `${cal.label} — ${cal.subtype} (search terms: ${cal.searchTerms.join(' or ')}): brands to check — ${brands}`;
     }).join('\n');
 
-    const prompt = `Search AmmoSeek.com and GunDeals.com for current IN-STOCK prices on the following ammunition calibers and specific brands only. For each brand/caliber combination, return a SEPARATE entry for each retailer that has it in stock — do NOT combine multiple retailers into one entry or use "Various" as a retailer name. If a brand is available at 3 retailers, return 3 separate JSON entries.
+    const prompt = `Search AmmoSeek.com, BulkCheapAmmo.com, LuckyGunner.com, and BulkAmmo.com for current IN-STOCK ammunition prices. For each brand/caliber combination found in stock, return a SEPARATE JSON entry for each retailer — do NOT combine multiple retailers or use "Various". 
 
-IMPORTANT: For .38 Special and .357 Magnum, return ONLY flat-nose (FP) or round-nose (LRN/RN) bullet profiles. Do NOT include JHP, JSP, or any pointed/spitzer profiles — these are for a lever-action rifle with a tubular magazine where pointed bullets are unsafe.
+IMPORTANT: For .38 Special and .357 Magnum, return ONLY flat-nose (FP) or round-nose (LRN/RN) profiles. Do NOT include JHP, JSP, or pointed profiles — these are for a lever-action rifle with a tubular magazine.
 
-Return a JSON array ONLY — no markdown, no preamble — in this exact format:
-[{"caliber_id":"9mm","brand":"PMC","ppr":0.19,"retailer":"Lucky Gunner","in_stock":true},{"caliber_id":"9mm","brand":"PMC","ppr":0.21,"retailer":"Palmetto State Armory","in_stock":true},...]
+You MUST respond with a JSON array ONLY. Start your response with [ and end with ]. No narrative, no caveats, no explanations before or after the JSON. If you cannot find a price for a brand simply omit it from the array.
 
-Use these caliber_id values exactly: 9mm, 556, 22lr, 38spl, 357mag.
-Only return results for brands explicitly listed below. If a brand has no in-stock results, omit it entirely.
+[{"caliber_id":"9mm","brand":"PMC","ppr":0.19,"retailer":"Lucky Gunner","in_stock":true},...]
+
+caliber_id values: 9mm, 556, 22lr, 38spl, 357mag.
+Only return brands from the lists below. Omit brands with no findable in-stock price.
 
 ${allBrandsForPrompt}`;
 
@@ -2315,8 +2316,17 @@ ${allBrandsForPrompt}`;
     let results = [];
     try {
       const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
-      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-      if (jsonMatch) results = JSON.parse(jsonMatch[0]);
+      // Find all [...] candidates and try each, taking the first that parses as an array
+      const matches = [...cleaned.matchAll(/\[[\s\S]*?\]/g)];
+      // Also try the greedy match (largest block)
+      const greedyMatch = cleaned.match(/\[[\s\S]*\]/);
+      const candidates = greedyMatch ? [greedyMatch[0], ...matches.map(m => m[0])] : matches.map(m => m[0]);
+      for (const candidate of candidates) {
+        try {
+          const parsed = JSON.parse(candidate);
+          if (Array.isArray(parsed) && parsed.length > 0) { results = parsed; break; }
+        } catch (_) {}
+      }
     } catch (_) {}
 
     if (results.length === 0) {
