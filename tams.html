@@ -2433,6 +2433,7 @@ async function w4LoadWatchlist() {
         lastPrice:    pr['Last Checked Price']?.number || null,
         lastDate:     pr['Last Checked Date']?.date?.start || null,
         lastRetailer: '',
+        isMap:        false,
       };
     });
     w4RenderWatchlist();
@@ -2470,8 +2471,9 @@ function w4RenderWatchlist() {
       <div class="w4-card">
         <div>
           <div class="w4-card-name">${escH(item.name)}</div>
-          <div class="w4-card-meta">${escH(item.model)} · checked ${escH(item.lastDate || '—')}${item.lastRetailer ? ' · ' + escH(item.lastRetailer) : ''}</div>
+          <div class="w4-card-meta">${escH(item.model)} · checked ${escH(item.lastDate || '—')} · ${escH(item.lastRetailer || 'Unknown retailer')}</div>
           ${badgeHtml}
+          ${item.isMap ? '<span class="w4-status-badge" style="background:rgba(224,82,82,0.12);color:var(--red);margin-left:6px;">MAP PRICE — CONTACT DEALER</span>' : ''}
           <div class="w4-card-prices">
             <div class="w4-price-block">
               <span class="w4-price-label">Target</span>
@@ -2702,8 +2704,8 @@ async function checkWishlistPrices() {
     const itemList = w4Items.map(i => `"${i.name}" — model/UPC: ${i.model}`).join('\n');
     const prompt = `Search gun.deals for the following firearms to find their current lowest new in-stock prices. For each item return the lowest price found, the retailer, and whether it is in stock.
 
-Return a JSON array ONLY — no markdown, no preamble:
-[{"model":"KN9069B-FSA","name":"Springfield Kuna","price":1049.99,"retailer":"Kygunco","in_stock":true},...]
+Return a JSON array ONLY — no markdown, no preamble. Always include the retailer name even if approximate. If no retailer name is known use "Unknown retailer". If the price is a MAP/minimum advertised price or requires contacting the dealer, set is_map to true:
+[{"model":"KN9069B-FSA","name":"Springfield Kuna","price":1049.99,"retailer":"Vance Outdoors","in_stock":true,"is_map":false},...]
 
 Use the model/UPC as the "model" field exactly as given. Items:
 ${itemList}`;
@@ -2735,6 +2737,7 @@ ${itemList}`;
         item.lastPrice    = match.price;
         item.lastDate     = today;
         item.lastRetailer = match.retailer || '';
+        item.isMap        = match.is_map || false;
         try {
           await notionUpdate(item.id, {
             'Last Checked Price': { number: match.price },
