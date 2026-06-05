@@ -780,16 +780,16 @@
     align-items: start;
   }
   .w4-card-name { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: 0.04em; margin-bottom: 4px; }
-  .w4-card-meta { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.08em; margin-bottom: 6px; }
+  .w4-card-meta { font-family: var(--mono); font-size: 10px; color: var(--text2); letter-spacing: 0.08em; margin-bottom: 6px; }
   .w4-card-prices { display: flex; gap: 16px; align-items: baseline; margin-top: 6px; }
   .w4-price-block { display: flex; flex-direction: column; }
-  .w4-price-label { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; }
+  .w4-price-label { font-family: var(--mono); font-size: 9px; color: var(--text2); letter-spacing: 0.1em; text-transform: uppercase; }
   .w4-price-val   { font-family: var(--mono); font-size: 13px; color: var(--accent); }
   .w4-price-delta-good { font-family: var(--mono); font-size: 11px; color: var(--green); }
   .w4-price-delta-bad  { font-family: var(--mono); font-size: 11px; color: var(--red); }
   .w4-price-delta-neu  { font-family: var(--mono); font-size: 11px; color: var(--text3); }
   .w4-card-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
-  .w4-action-btn { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; padding: 4px 10px; border: 1px solid var(--border2); background: none; color: var(--text2); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+  .w4-action-btn { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; padding: 4px 10px; border: 1px solid var(--border2); background: none; color: var(--text); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
   .w4-action-btn:hover { border-color: var(--accent); color: var(--accent); }
   .w4-action-btn.purchased:hover { border-color: var(--green); color: var(--green); }
   .w4-action-btn.remove:hover   { border-color: var(--red);   color: var(--red); }
@@ -2297,12 +2297,12 @@ async function checkAmmoPrices() {
       return `${cal.label} — ${cal.subtype} (search terms: ${cal.searchTerms.join(' or ')}): brands to check — ${brands}`;
     }).join('\n');
 
-    const prompt = `Search AmmoSeek.com and GunDeals.com for current IN-STOCK prices on the following ammunition calibers and specific brands only. For each brand/caliber combination that has in-stock results, return the lowest price per round available. Ignore out-of-stock listings entirely.
+    const prompt = `Search AmmoSeek.com and GunDeals.com for current IN-STOCK prices on the following ammunition calibers and specific brands only. For each brand/caliber combination, return a SEPARATE entry for each retailer that has it in stock — do NOT combine multiple retailers into one entry or use "Various" as a retailer name. If a brand is available at 3 retailers, return 3 separate JSON entries.
 
 IMPORTANT: For .38 Special and .357 Magnum, return ONLY flat-nose (FP) or round-nose (LRN/RN) bullet profiles. Do NOT include JHP, JSP, or any pointed/spitzer profiles — these are for a lever-action rifle with a tubular magazine where pointed bullets are unsafe.
 
 Return a JSON array ONLY — no markdown, no preamble — in this exact format:
-[{"caliber_id":"9mm","brand":"PMC","ppr":0.19,"retailer":"Lucky Gunner","in_stock":true},...]
+[{"caliber_id":"9mm","brand":"PMC","ppr":0.19,"retailer":"Lucky Gunner","in_stock":true},{"caliber_id":"9mm","brand":"PMC","ppr":0.21,"retailer":"Palmetto State Armory","in_stock":true},...]
 
 Use these caliber_id values exactly: 9mm, 556, 22lr, 38spl, 357mag.
 Only return results for brands explicitly listed below. If a brand has no in-stock results, omit it entirely.
@@ -2341,19 +2341,15 @@ function w3RenderResults(selected, results, avgPaidMap) {
   let html = '';
 
   for (const cal of selected) {
-    const calResults = results.filter(r => r.caliber_id === cal.id && r.in_stock !== false);
+    // All results for this caliber regardless of in_stock — we'll show all brands
+    const calResults = results.filter(r => r.caliber_id === cal.id);
     const avg = avgPaidMap[cal.id] || {};
 
     html += `<div class="w3-cal-block">`;
     html += `<div class="w3-cal-heading">${cal.label} <span style="font-family:var(--mono);font-size:10px;color:var(--text3);font-weight:400;letter-spacing:0.06em;">${cal.subtypeNote}</span></div>`;
 
-    // Render tier 1 then tier 2
     for (const tierNum of [1, 2]) {
       const tierBrands = tierNum === 1 ? cal.tier1 : cal.tier2;
-      const tierResults = calResults.filter(r =>
-        tierBrands.some(b => r.brand?.toLowerCase().includes(b.toLowerCase().split(' ')[0]))
-      );
-      if (tierResults.length === 0) continue;
 
       html += `
         <div style="margin-bottom:4px;">
@@ -2368,34 +2364,62 @@ function w3RenderResults(selected, results, avgPaidMap) {
             <span style="text-align:right">Retailer</span>
           </div>`;
 
-      for (const r of tierResults) {
-        const ppr  = parseFloat(r.ppr) || 0;
-        const avgP = avg[r.brand] || null;
-        let deltaHtml = '<span class="w3-delta-neu">—</span>';
-        if (avgP && ppr) {
-          const diff = ppr - avgP;
-          const sign = diff < 0 ? '↓' : '↑';
-          const cls  = diff < 0 ? 'w3-delta-good' : diff > 0.005 ? 'w3-delta-bad' : 'w3-delta-neu';
-          deltaHtml  = `<span class="${cls}">${sign} $${Math.abs(diff).toFixed(3)}</span>`;
-        }
+      for (const brand of tierBrands) {
+        // Find ALL results matching this brand (one per retailer)
+        const brandResults = calResults.filter(res =>
+          res.brand?.toLowerCase().includes(brand.toLowerCase().split(' ')[0]) &&
+          res.in_stock !== false
+        );
+
+        const avgP = avg[brand] || null;
         const avgDisplay = avgP ? `$${avgP.toFixed(3)}` : '—';
-        const pprDisplay = ppr  ? `$${ppr.toFixed(3)}`  : 'N/A';
-        const retailer   = (r.retailer || '').substring(0, 14);
 
-        html += `
-          <div class="w3-result-row">
-            <span class="w3-brand">${escH(r.brand || '—')}</span>
-            <span class="w3-ppr">${pprDisplay}</span>
-            <span class="w3-avg">${avgDisplay}</span>
-            ${deltaHtml}
-            <span class="w3-retailer">${escH(retailer)}</span>
-          </div>`;
+        if (brandResults.length === 0) {
+          // Brand checked but no listing found
+          html += `
+            <div class="w3-result-row">
+              <span class="w3-brand" style="color:var(--text2);">${escH(brand)}</span>
+              <span style="color:var(--text3);font-size:10px;">no listing</span>
+              <span class="w3-avg">${avgDisplay}</span>
+              <span class="w3-delta-neu">—</span>
+              <span style="color:var(--text3);">—</span>
+            </div>`;
+        } else {
+          // One row per retailer, sorted cheapest first
+          brandResults.sort((a, b) => (parseFloat(a.ppr)||0) - (parseFloat(b.ppr)||0));
+          brandResults.forEach((r, idx) => {
+            const ppr = parseFloat(r.ppr) || 0;
+            let deltaHtml = '<span class="w3-delta-neu">—</span>';
+            // Only show delta on the cheapest (first) row
+            if (idx === 0 && avgP && ppr) {
+              const diff = ppr - avgP;
+              const sign = diff < 0 ? '↓' : '↑';
+              const cls  = diff < 0 ? 'w3-delta-good' : diff > 0.005 ? 'w3-delta-bad' : 'w3-delta-neu';
+              deltaHtml  = `<span class="${cls}">${sign} $${Math.abs(diff).toFixed(3)}</span>`;
+            }
+            const pprDisplay = ppr ? `$${ppr.toFixed(3)}` : 'N/A';
+            const retailer   = (r.retailer || '').substring(0, 16);
+            // Show brand name only on first row, indent subsequent rows
+            const brandCell  = idx === 0
+              ? `<span class="w3-brand">${escH(brand)}</span>`
+              : `<span class="w3-brand" style="color:var(--text3);padding-left:10px;">↳</span>`;
+            const avgCell    = idx === 0
+              ? `<span class="w3-avg">${avgDisplay}</span>`
+              : `<span class="w3-avg">—</span>`;
+
+            html += `
+              <div class="w3-result-row">
+                ${brandCell}
+                <span class="w3-ppr">${pprDisplay}</span>
+                ${avgCell}
+                ${deltaHtml}
+                <span class="w3-retailer">${escH(retailer)}</span>
+              </div>`;
+          });
+        }
       }
-      html += `</div>`;
-    }
 
-    if (calResults.length === 0) {
-      html += `<div class="w3-no-results">No in-stock results found for Tier 1/2 brands.</div>`;
+      html += `</div>`;
     }
 
     html += `</div>`;
