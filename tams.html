@@ -1,0 +1,2647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T.A.M.S. — Tactical Ammo Management System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --bg2: #111318;
+    --bg3: #181c22;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.15);
+    --accent: #c8a84b;
+    --accent2: #e8c96b;
+    --accent-dim: rgba(200,168,75,0.15);
+    --accent-glow: rgba(200,168,75,0.08);
+    --red: #e05252;
+    --green: #52b788;
+    --blue: #5b9bd5;
+    --text: #e8e6e0;
+    --text2: #9a9690;
+    --text3: #5a5750;
+    --mono: 'Share Tech Mono', monospace;
+    --display: 'Rajdhani', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    background: var(--bg2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-badge {
+    background: var(--accent);
+    color: #0a0c0f;
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 4px 10px;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+
+  .logo-full {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .config-btn {
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 14px;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: all 0.15s;
+  }
+  .config-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text3);
+    display: inline-block;
+  }
+  .status-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* CONFIG PANEL */
+  #config-panel {
+    display: none;
+    position: fixed;
+    top: 0; right: 0;
+    width: 380px;
+    height: 100vh;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    z-index: 200;
+    padding: 24px;
+    overflow-y: auto;
+  }
+  #config-panel.open { display: block; }
+
+  .config-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .config-title {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: var(--text2);
+    font-size: 20px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .close-btn:hover { color: var(--text); }
+
+  .config-field { margin-bottom: 16px; }
+  .config-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .config-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .config-input:focus { border-color: var(--accent); }
+
+  .save-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #0a0c0f;
+    border: none;
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    margin-top: 8px;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    transition: background 0.15s;
+  }
+  .save-btn:hover { background: var(--accent2); }
+
+  .config-note {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 16px;
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+  .config-note a { color: var(--accent); }
+
+  /* MAIN LAYOUT */
+  main {
+    padding: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 1200px;
+  }
+
+  /* WIDGET CARDS */
+  .widget {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .widget::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+
+  .widget-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .widget-title-group { display: flex; align-items: center; gap: 10px; }
+
+  .widget-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    border: 1px solid var(--accent-dim);
+    padding: 2px 6px;
+  }
+
+  .widget-title {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+
+  .widget-body { padding: 20px; }
+
+  /* FORM ELEMENTS */
+  .field { margin-bottom: 14px; }
+
+  label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+
+  select, input[type="text"], input[type="number"], input[type="date"] {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+    appearance: none;
+    transition: border-color 0.15s;
+    border-radius: 0;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+
+  select option { background: var(--bg3); }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .field-row3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* BUTTONS */
+  .btn-primary {
+    width: 100%;
+    background: var(--accent);
+    color: #0a0c0f;
+    border: none;
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 11px;
+    cursor: pointer;
+    text-transform: uppercase;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    transition: background 0.15s, opacity 0.15s;
+    margin-top: 4px;
+  }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-secondary {
+    width: 100%;
+    background: none;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    margin-top: 4px;
+  }
+  .btn-secondary:hover { border-color: var(--accent); background: var(--accent-glow); }
+  .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* FEEDBACK */
+  .feedback {
+    margin-top: 12px;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    line-height: 1.6;
+    display: none;
+    border-left: 2px solid var(--accent);
+    background: var(--accent-glow);
+    color: var(--text2);
+    white-space: pre-wrap;
+  }
+  .feedback.visible { display: block; }
+  .feedback.error { border-left-color: var(--red); background: rgba(224,82,82,0.07); color: var(--red); }
+  .feedback.success { border-left-color: var(--green); background: rgba(82,183,136,0.07); color: var(--green); }
+  .feedback.loading { border-left-color: var(--blue); background: rgba(91,155,213,0.07); color: var(--blue); }
+
+  /* PRICE RESULTS */
+  .price-results { margin-top: 16px; }
+
+  .price-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .price-name {
+    font-family: var(--body);
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+    flex: 1;
+  }
+  .price-name small {
+    display: block;
+    font-size: 11px;
+    color: var(--text2);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  .price-value {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .price-value small {
+    display: block;
+    font-size: 10px;
+    color: var(--text3);
+    text-align: right;
+  }
+
+  .price-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    margin-left: 10px;
+    flex-shrink: 0;
+  }
+  .price-badge.good { background: rgba(82,183,136,0.15); color: var(--green); }
+  .price-badge.avg { background: rgba(200,168,75,0.15); color: var(--accent); }
+  .price-badge.high { background: rgba(224,82,82,0.15); color: var(--red); }
+
+  /* FIFO ALLOCATION TABLE */
+  .alloc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 11px;
+    margin-top: 10px;
+    color: var(--text2);
+  }
+  .alloc-table th {
+    text-align: left;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text3);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 9px;
+  }
+  .alloc-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .alloc-table tr:last-child td { border-bottom: none; }
+  .alloc-num { color: var(--accent); }
+
+  /* DIVIDER */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+  }
+
+  /* SPINNER */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 1.5px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+
+  /* TICKER */
+  .ticker-bar {
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 32px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    display: flex;
+    gap: 32px;
+    overflow: hidden;
+  }
+  .ticker-item { white-space: nowrap; }
+  .ticker-item span { color: var(--text2); }
+
+  /* SECTION HEADING within widget */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ALLOCATION PREVIEW */
+  #alloc-preview { display: none; }
+  #alloc-preview.visible { display: block; }
+
+  /* W1 FIREARM ROWS */
+  .fw-row {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 12px 14px 10px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .fw-row-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .fw-row-num {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .fw-remove-btn {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 2px;
+    transition: color 0.15s;
+  }
+  .fw-remove-btn:hover { color: var(--red); }
+  .fw-mag-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .fw-rounds-auto {
+    font-style: italic;
+    color: var(--text2);
+  }
+  input.manual-override {
+    font-style: normal;
+    color: var(--text);
+  }
+
+  /* MAG DEFAULTS PANEL */
+  #mag-defaults-panel {
+    display: none;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  #mag-defaults-panel.open { display: block; }
+  .mag-default-row {
+    display: grid;
+    grid-template-columns: 1fr 80px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .mag-default-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  /* RENTAL SECTION */
+  .rental-section {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--blue);
+    padding: 14px;
+    margin-top: 4px;
+    display: none;
+  }
+  .rental-section.open { display: block; }
+  .rental-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .rental-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--blue);
+  }
+  .rental-note {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+  }
+
+  /* REVIEW MODAL */
+  #w1-review-modal {
+    display: none;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    padding: 20px;
+    margin-top: 14px;
+  }
+  #w1-review-modal.open { display: block; }
+  .review-title {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .review-section {
+    margin-bottom: 12px;
+  }
+  .review-section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .review-line {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    line-height: 1.8;
+  }
+  .review-line .hl { color: var(--accent); }
+  .review-line .dim { color: var(--text3); }
+  .review-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  /* TOGGLE SWITCH */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    left: 3px; top: 3px;
+    background: var(--text3);
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-slider { background: rgba(91,155,213,0.2); border-color: var(--blue); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--blue); }
+  .toggle-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.06em;
+  }
+
+  /* W3 CALIBER TOGGLES */
+  .cal-toggle {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 5px 14px;
+    border: 1px solid var(--border2);
+    background: none;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .cal-toggle.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  /* W3 RESULTS */
+  .w3-cal-block { margin-bottom: 20px; }
+  .w3-cal-heading {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .w3-tier-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    text-transform: uppercase;
+  }
+  .w3-tier-1 { background: rgba(200,168,75,0.15); color: var(--accent); }
+  .w3-tier-2 { background: rgba(91,155,213,0.12); color: var(--blue); }
+  .w3-result-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 80px 90px 80px;
+    gap: 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    border-bottom: 1px solid var(--border);
+    padding: 7px 10px;
+    align-items: center;
+  }
+  .w3-result-row:last-child { border-bottom: none; }
+  .w3-result-row.header {
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border2);
+  }
+  .w3-brand { color: var(--text); }
+  .w3-ppr { color: var(--accent); text-align: right; }
+  .w3-avg { color: var(--text2); text-align: right; }
+  .w3-delta-good { color: var(--green); text-align: right; }
+  .w3-delta-bad  { color: var(--red);   text-align: right; }
+  .w3-delta-neu  { color: var(--text3); text-align: right; }
+  .w3-retailer   { color: var(--text2); text-align: right; font-size: 10px; }
+  .w3-no-results {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    padding: 8px 10px;
+    font-style: italic;
+  }
+  .w3-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 0;
+  }
+  .stock-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .stock-row:last-child { border-bottom: none; }
+  .stock-cal { color: var(--text2); font-family: var(--mono); font-size: 11px; }
+  .stock-count {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  /* W4 WISHLIST CARDS */
+  .w4-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: start;
+  }
+  .w4-card-name { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: 0.04em; margin-bottom: 4px; }
+  .w4-card-meta { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.08em; margin-bottom: 6px; }
+  .w4-card-prices { display: flex; gap: 16px; align-items: baseline; margin-top: 6px; }
+  .w4-price-block { display: flex; flex-direction: column; }
+  .w4-price-label { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; }
+  .w4-price-val   { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+  .w4-price-delta-good { font-family: var(--mono); font-size: 11px; color: var(--green); }
+  .w4-price-delta-bad  { font-family: var(--mono); font-size: 11px; color: var(--red); }
+  .w4-price-delta-neu  { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+  .w4-card-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .w4-action-btn { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; padding: 4px 10px; border: 1px solid var(--border2); background: none; color: var(--text2); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+  .w4-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .w4-action-btn.purchased:hover { border-color: var(--green); color: var(--green); }
+  .w4-action-btn.remove:hover   { border-color: var(--red);   color: var(--red); }
+  .w4-status-badge { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 7px; }
+  .w4-badge-under { background: rgba(82,183,136,0.15); color: var(--green); }
+  .w4-badge-over  { background: rgba(224,82,82,0.12);  color: var(--red); }
+  .w4-badge-watch { background: rgba(91,155,213,0.12); color: var(--blue); }
+
+  /* BACKDROP */
+  #backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 199;
+  }
+  #backdrop.open { display: block; }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; padding: 16px; }
+    header { padding: 0 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- CONFIG BACKDROP -->
+<div id="backdrop" onclick="closeConfig()"></div>
+
+<!-- CONFIG PANEL -->
+<div id="config-panel">
+  <div class="config-header">
+    <span class="config-title">⚙ CONFIG</span>
+    <button class="close-btn" onclick="closeConfig()">✕</button>
+  </div>
+  <div class="config-field">
+    <label class="config-label">Notion API Token</label>
+    <input class="config-input" type="password" id="cfg-token" placeholder="ntn_xxxxxxxxxxxx">
+  </div>
+  <div class="config-field">
+    <label class="config-label">Ammo Tracker DB ID</label>
+    <input class="config-input" type="text" id="cfg-ammo-db" value="31a48b32-cb0b-8126-a070-000b6d9b0b4b" placeholder="collection UUID">
+  </div>
+  <div class="config-field">
+    <label class="config-label">Range Log DB ID</label>
+    <input class="config-input" type="text" id="cfg-range-db" value="31a48b32-cb0b-8091-81f8-000b131c2db0" placeholder="collection UUID">
+  </div>
+  <div class="config-field">
+    <label class="config-label">CORS Proxy URL</label>
+    <input class="config-input" type="text" id="cfg-proxy" value="https://corsproxy.io/?url=" placeholder="https://corsproxy.io/?url=">
+  </div>
+  <button class="save-btn" onclick="saveConfig()">Save Config</button>
+  <div class="config-note">
+    Your token is stored in <strong>localStorage</strong> on this device only — never sent anywhere except Notion's API.<br><br>
+    <strong>CORS Proxy:</strong> Required because browsers block direct Notion API calls from static pages. corsproxy.io is free and open source. Alternatively deploy your own Cloudflare Worker at <a href="https://corsproxy.io" target="_blank">corsproxy.io</a>.<br><br>
+    <strong>Widgets 3 &amp; 4</strong> use Claude AI to fetch and parse AmmoSeek / gun.deals via the proxy. Provide an Anthropic API key below to enable them.
+  </div>
+  <div class="config-field" style="margin-top:16px;">
+    <label class="config-label">Anthropic API Key (for price monitors)</label>
+    <input class="config-input" type="password" id="cfg-anthropic" placeholder="sk-ant-xxxxxxxxxxxx">
+  </div>
+  <button class="save-btn" onclick="saveConfig()" style="margin-top:8px;">Save All</button>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-badge">T.A.M.S.</div>
+    <span class="logo-full">Tactical Ammo Management System</span>
+  </div>
+  <div class="header-right">
+    <span id="conn-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px;">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-label">NOT CONFIGURED</span>
+    </span>
+    <button class="config-btn" onclick="openConfig()">⚙ Config</button>
+  </div>
+</header>
+
+<!-- TICKER -->
+<div class="ticker-bar" id="ticker">
+  <span class="ticker-item">T.A.M.S. v1.0</span>
+  <span class="ticker-item">NOTION: <span id="ticker-notion">OFFLINE</span></span>
+  <span class="ticker-item">WEAPONS: AR-15 "Frank" / Girsan MC X / .22 Buckmark / S&W 1854</span>
+  <span class="ticker-item">FIFO: ENABLED</span>
+  <span class="ticker-item">PROXY: corsproxy.io</span>
+</div>
+
+<!-- MAIN -->
+<main>
+
+  <!-- WIDGET 1: AMMO USAGE LOGGER -->
+  <div class="widget" style="grid-column: 1 / -1;">
+    <div class="widget-header">
+      <div class="widget-title-group">
+        <span class="widget-num">W-01</span>
+        <span class="widget-title">Ammo Usage Logger</span>
+      </div>
+      <button class="config-btn" onclick="toggleMagDefaults()" title="Magazine defaults">&#9881; Mag Defaults</button>
+    </div>
+    <div class="widget-body">
+
+      <!-- MAG DEFAULTS PANEL -->
+      <div id="mag-defaults-panel">
+        <div class="section-label">Magazine Defaults</div>
+        <div class="mag-default-row">
+          <span class="mag-default-label">AR-15 "Frank" — rounds/mag</span>
+          <input type="number" id="md-frank" min="0" placeholder="30">
+        </div>
+        <div class="mag-default-row">
+          <span class="mag-default-label">Girsan MC X — rounds/mag</span>
+          <input type="number" id="md-girsan" min="0" placeholder="17">
+        </div>
+        <div class="mag-default-row">
+          <span class="mag-default-label">.22 Buckmark — rounds/mag</span>
+          <input type="number" id="md-buckmark" min="0" placeholder="0">
+        </div>
+        <div class="mag-default-row">
+          <span class="mag-default-label">S&amp;W 1854 — rounds/mag</span>
+          <input type="number" id="md-sw1854" min="0" placeholder="0">
+        </div>
+        <button class="btn-secondary" onclick="saveMagDefaults()" style="margin-top:8px;width:auto;padding:6px 20px;">Save Defaults</button>
+        <span id="md-saved" style="font-family:var(--mono);font-size:10px;color:var(--green);margin-left:10px;display:none;">Saved.</span>
+      </div>
+
+      <!-- SESSION HEADER ROW -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div class="field" style="margin-bottom:0;">
+          <label>Date</label>
+          <input type="date" id="w1-date">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Range</label>
+          <select id="w1-range-select" onchange="w1RangeChange()">
+            <option value="The Range - Mentor">The Range - Mentor</option>
+            <option value="other">Other...</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:0;" id="w1-range-other-field" style="display:none;">
+          <label>Range Name</label>
+          <input type="text" id="w1-range-other" placeholder="Enter range name">
+        </div>
+      </div>
+
+      <!-- FIREARM ROWS -->
+      <div class="section-label">Firearms</div>
+      <div id="w1-fw-rows"></div>
+      <button class="btn-secondary" onclick="addFirearmRow()" style="margin-bottom:14px;">+ Add Firearm</button>
+
+      <div class="divider"></div>
+
+      <!-- RENTAL GUN TOGGLE -->
+      <div class="toggle-row">
+        <label class="toggle-switch">
+          <input type="checkbox" id="w1-rental-toggle" onchange="toggleRental()">
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-text">Rental gun (ammo deduction only — not logged to Range Log)</span>
+      </div>
+      <div class="rental-section" id="w1-rental-section">
+        <div class="rental-header">
+          <span class="rental-label">Rental Gun Ammo</span>
+          <span class="rental-note">Updates Fired count only</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Ammo</label>
+            <select id="w1-rental-ammo">
+              <option value="">— Select ammo —</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Rounds Fired</label>
+            <input type="number" id="w1-rental-rounds" min="1" placeholder="e.g. 50">
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button class="btn-primary" id="w1-review-btn" onclick="w1Review()">Review &amp; Submit to Notion</button>
+      </div>
+
+      <!-- REVIEW MODAL -->
+      <div id="w1-review-modal">
+        <div class="review-title">Session Summary — Confirm Before Write</div>
+        <div id="w1-review-content"></div>
+        <div class="review-btn-row">
+          <button class="btn-secondary" onclick="w1CancelReview()">&#9664; Edit</button>
+          <button class="btn-primary" id="w1-confirm-btn" onclick="w1Confirm()">Confirm &amp; Write to Notion</button>
+        </div>
+      </div>
+
+      <div class="feedback" id="w1-feedback"></div>
+    </div>
+  </div>
+
+  <!-- WIDGET 2: AMMO PURCHASE LOGGER -->
+  <div class="widget">
+    <div class="widget-header">
+      <div class="widget-title-group">
+        <span class="widget-num">W-02</span>
+        <span class="widget-title">Ammo Purchase Logger</span>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="section-label">Purchase Details</div>
+
+      <!-- BRAND -->
+      <div class="field">
+        <label>Brand</label>
+        <select id="w2-brand-sel" onchange="w2ComboChange('brand')">
+          <option value="">— Select or type below —</option>
+        </select>
+        <input type="text" id="w2-brand" placeholder="Or type new brand" style="margin-top:6px;" oninput="w2UpdateLotName()">
+      </div>
+
+      <!-- CALIBER -->
+      <div class="field">
+        <label>Caliber</label>
+        <select id="w2-caliber-sel" onchange="w2ComboChange('caliber')">
+          <option value="">— Select or type below —</option>
+        </select>
+        <input type="text" id="w2-caliber" placeholder="Or type new caliber" style="margin-top:6px;" oninput="w2UpdateLotName()">
+      </div>
+
+      <!-- GRAIN -->
+      <div class="field">
+        <label>Grain</label>
+        <select id="w2-grain-sel" onchange="w2ComboChange('grain')">
+          <option value="">— Select or type below —</option>
+        </select>
+        <input type="text" id="w2-grain" placeholder="Or type new grain" style="margin-top:6px;" oninput="w2UpdateLotName()">
+      </div>
+
+      <!-- LOT NAME PREVIEW -->
+      <div id="w2-lot-preview" style="display:none;margin-bottom:14px;">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px;">Lot name (auto-generated)</div>
+        <div id="w2-lot-name" style="font-family:var(--mono);font-size:12px;color:var(--accent);padding:6px 10px;background:var(--accent-glow);border-left:2px solid var(--accent-dim);"></div>
+      </div>
+
+      <!-- QTY / VALUE / DATE -->
+      <div class="field-row3">
+        <div class="field">
+          <label>Qty (Rounds)</label>
+          <input type="number" id="w2-qty" min="1" placeholder="50" oninput="w2UpdatePpr()">
+        </div>
+        <div class="field">
+          <label>Total Value ($)</label>
+          <input type="number" id="w2-value" min="0" step="0.01" placeholder="24.99" oninput="w2UpdatePpr()">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="w2-date">
+        </div>
+      </div>
+
+      <!-- PPR PREVIEW -->
+      <div id="w2-ppr-preview" style="display:none;margin-bottom:14px;">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px;">Price per round</div>
+        <div id="w2-ppr-value" style="font-family:var(--mono);font-size:13px;color:var(--green);padding:6px 10px;background:rgba(82,183,136,0.07);border-left:2px solid var(--green);"></div>
+      </div>
+
+      <!-- RETAILER -->
+      <div class="field">
+        <label>Retailer</label>
+        <select id="w2-retailer-sel" onchange="w2ComboChange('retailer')">
+          <option value="">— Select or type below —</option>
+        </select>
+        <input type="text" id="w2-retailer" placeholder="Or type new retailer" style="margin-top:6px;display:none;">
+      </div>
+
+      <button class="btn-primary" onclick="logPurchase()">Log Purchase to Notion</button>
+      <div class="feedback" id="w2-feedback"></div>
+    </div>
+  </div>
+
+  <!-- WIDGET 3: AMMO PRICE MONITOR -->
+  <div class="widget" style="grid-column: 1 / -1;">
+    <div class="widget-header">
+      <div class="widget-title-group">
+        <span class="widget-num">W-03</span>
+        <span class="widget-title">Ammo Price Monitor</span>
+      </div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;">Tier 1 &amp; 2 brands only · in-stock · vs. your avg paid</span>
+    </div>
+    <div class="widget-body">
+      <div class="section-label">Calibers</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;" id="w3-cal-toggles"></div>
+      <button class="btn-primary" id="w3-btn" onclick="checkAmmoPrices()">Check Current Prices</button>
+      <div class="feedback" id="w3-feedback"></div>
+      <div id="w3-results" style="margin-top:16px;"></div>
+    </div>
+  </div>
+
+  <!-- WIDGET 4: WISHLIST MANAGER -->
+  <div class="widget" style="grid-column: 1 / -1;">
+    <div class="widget-header">
+      <div class="widget-title-group">
+        <span class="widget-num">W-04</span>
+        <span class="widget-title">Wishlist Manager</span>
+      </div>
+      <button class="config-btn" onclick="w4ToggleAddPanel()">+ Add Firearm</button>
+    </div>
+    <div class="widget-body">
+
+      <!-- ADD ITEM PANEL -->
+      <div id="w4-add-panel" style="display:none;background:var(--bg3);border:1px solid var(--border2);padding:16px;margin-bottom:16px;">
+        <div class="section-label">New Wishlist Item</div>
+        <div class="field-row">
+          <div class="field" style="margin-bottom:0;">
+            <label>Firearm Name</label>
+            <input type="text" id="w4-new-name" placeholder="e.g. Glock 19 Gen 5">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Model # / UPC</label>
+            <input type="text" id="w4-new-model" placeholder="e.g. PA195S203">
+          </div>
+        </div>
+        <div class="field-row" style="margin-top:10px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Target Price ($)</label>
+            <input type="number" id="w4-new-target" min="0" step="0.01" placeholder="e.g. 499">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Category</label>
+            <select id="w4-new-category">
+              <option value="Handgun">Handgun</option>
+              <option value="Rifle">Rifle</option>
+              <option value="Rimfire">Rimfire</option>
+              <option value="Shotgun">Shotgun</option>
+              <option value="Accessory">Accessory</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:10px;">
+          <button class="btn-primary" style="flex:1;" onclick="w4ResearchAndAdd()">Research &amp; Add to Notion</button>
+          <button class="btn-secondary" style="flex:0 0 100px;" onclick="w4ToggleAddPanel()">Cancel</button>
+        </div>
+        <div class="feedback" id="w4-add-feedback"></div>
+        <!-- REVIEW PANEL -->
+        <div id="w4-review-panel" style="display:none;margin-top:14px;border:1px solid var(--border2);padding:14px;">
+          <div class="review-title">Research Summary — Confirm Before Writing to Notion</div>
+          <div id="w4-review-content" style="font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.8;margin-bottom:12px;max-height:300px;overflow-y:auto;"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <button class="btn-secondary" onclick="w4CancelReview()">◀ Edit</button>
+            <button class="btn-primary" id="w4-confirm-btn" onclick="w4ConfirmAdd()">Confirm &amp; Save to Notion</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVE WATCHLIST -->
+      <div class="section-label">Watching</div>
+      <div id="w4-watchlist" style="margin-bottom:16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 0;" id="w4-loading">
+          <span class="spinner"></span> Loading from Notion...
+        </div>
+      </div>
+
+      <!-- PRICE CHECK -->
+      <button class="btn-primary" id="w4-btn" onclick="checkWishlistPrices()">Check Current Prices</button>
+      <div class="feedback" id="w4-feedback"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const CFG = {
+  get token()      { return localStorage.getItem('tams_token') || ''; },
+  get ammoDb()     { return localStorage.getItem('tams_ammo_db') || '31a48b32-cb0b-8126-a070-000b6d9b0b4b'; },
+  get rangeDb()    { return localStorage.getItem('tams_range_db') || '31a48b32-cb0b-8091-81f8-000b131c2db0'; },
+  get proxy()      { return localStorage.getItem('tams_proxy') || 'https://corsproxy.io/?url='; },
+  get anthropic()  { return localStorage.getItem('tams_anthropic') || ''; },
+};
+
+function openConfig() {
+  document.getElementById('cfg-token').value = CFG.token;
+  document.getElementById('cfg-ammo-db').value = CFG.ammoDb;
+  document.getElementById('cfg-range-db').value = CFG.rangeDb;
+  document.getElementById('cfg-proxy').value = CFG.proxy;
+  document.getElementById('cfg-anthropic').value = CFG.anthropic;
+  document.getElementById('config-panel').classList.add('open');
+  document.getElementById('backdrop').classList.add('open');
+}
+
+function closeConfig() {
+  document.getElementById('config-panel').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('open');
+}
+
+function saveConfig() {
+  localStorage.setItem('tams_token',      document.getElementById('cfg-token').value.trim());
+  localStorage.setItem('tams_ammo_db',    document.getElementById('cfg-ammo-db').value.trim());
+  localStorage.setItem('tams_range_db',   document.getElementById('cfg-range-db').value.trim());
+  localStorage.setItem('tams_proxy',      document.getElementById('cfg-proxy').value.trim());
+  localStorage.setItem('tams_anthropic',  document.getElementById('cfg-anthropic').value.trim());
+  closeConfig();
+  updateStatus();
+  if (CFG.token) { loadInventory().then(() => w2PopulateDropdowns()); }
+  setFeedback('w1-feedback', 'Config saved.', 'success');
+}
+
+function updateStatus() {
+  const dot = document.getElementById('status-dot');
+  const lbl = document.getElementById('status-label');
+  const tn  = document.getElementById('ticker-notion');
+  if (CFG.token) {
+    dot.classList.add('connected');
+    lbl.textContent = 'NOTION CONFIGURED';
+    lbl.style.color = 'var(--green)';
+    tn.textContent = 'CONFIGURED';
+    tn.style.color = 'var(--green)';
+  } else {
+    dot.classList.remove('connected');
+    lbl.textContent = 'NOT CONFIGURED';
+    lbl.style.color = '';
+    tn.textContent = 'OFFLINE';
+    tn.style.color = '';
+  }
+}
+
+// ─── NOTION API ───────────────────────────────────────────────────────────────
+const NOTION_VERSION = '2022-06-28';
+
+function notionHeaders() {
+  return {
+    'Authorization': 'Bearer ' + CFG.token,
+    'Notion-Version': NOTION_VERSION,
+    'Content-Type': 'application/json',
+  };
+}
+
+async function notionQuery(dbId, filter, sorts) {
+  const url = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/databases/${dbId}/query`);
+  const body = {};
+  if (filter) body.filter = filter;
+  if (sorts)  body.sorts  = sorts;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: notionHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.message || `Notion API error ${r.status}`);
+  }
+  return r.json();
+}
+
+async function notionCreate(dbId, properties) {
+  const url = CFG.proxy + encodeURIComponent('https://api.notion.com/v1/pages');
+  const body = {
+    parent: { database_id: dbId },
+    properties,
+  };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: notionHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.message || `Notion API error ${r.status}`);
+  }
+  return r.json();
+}
+
+async function notionUpdate(pageId, properties) {
+  const url = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/pages/${pageId}`);
+  const r = await fetch(url, {
+    method: 'PATCH',
+    headers: notionHeaders(),
+    body: JSON.stringify({ properties }),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.message || `Notion API error ${r.status}`);
+  }
+  return r.json();
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function setFeedback(id, msg, type = '') {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'feedback visible' + (type ? ' ' + type : '');
+}
+
+function hideFeedback(id) {
+  document.getElementById(id).className = 'feedback';
+}
+
+function requireConfig(fbId) {
+  if (!CFG.token) {
+    setFeedback(fbId, '⚠ Configure your Notion API token first (⚙ Config button top-right).', 'error');
+    return false;
+  }
+  return true;
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Set default dates on load
+window.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('w1-date').value = todayIso();
+  document.getElementById('w2-date').value = todayIso();
+  document.getElementById('w1-range-other-field').style.display = 'none';
+  // W2: hide free-text inputs until "Other" is chosen in each dropdown
+  ['w2-brand','w2-caliber','w2-grain','w2-retailer'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  updateStatus();
+  w3InitToggles();
+  // Load live inventory from Notion, then render first row
+  // If no token yet, addFirearmRow still runs (combos will show all until token saved)
+  await loadInventory();
+  await w2PopulateDropdowns();
+  addFirearmRow();
+  w4LoadWatchlist();
+});
+
+// ─── WIDGET 1: CONSTANTS ──────────────────────────────────────────────────────
+
+const FIREARMS = [
+  { value: 'AR-15 "Frank"',  label: 'AR-15 "Frank"',  calibers: ['5.56 NATO', '.223 Rem'] },
+  { value: 'Girsan MC X',    label: 'Girsan MC X',    calibers: ['9mm'] },
+  { value: '.22 Buckmark',   label: '.22 Buckmark',   calibers: ['.22 LR'] },
+  { value: 'S&W 1854',       label: 'S&W 1854',       calibers: ['.357 Magnum', '.38 Special'] },
+];
+
+// All known ammo combos — keyed by caliber keywords for filtering
+// combo: { label, brand, caliber, grain }
+const AMMO_COMBOS = [
+  { label: 'Blazer 9mm 115gr',              brand: 'Blazer',     caliber: '9mm',         grain: '115' },
+  { label: 'Winchester 9mm 115gr',          brand: 'Winchester', caliber: '9mm',         grain: '115' },
+  { label: 'Magtech 9mm 115gr',             brand: 'Magtech',    caliber: '9mm',         grain: '115' },
+  { label: 'PMC Bronze 9mm',                brand: 'PMC',        caliber: '9mm',         grain: '' },
+  { label: 'Fiocchi Range Dynamics 9mm 115gr', brand: 'Fiocchi', caliber: '9mm',         grain: '115' },
+  { label: 'Sellier & Bellot 9mm',          brand: 'Sellier & Bellot', caliber: '9mm',   grain: '' },
+  { label: 'Winchester 5.56 55gr',          brand: 'Winchester', caliber: '5.56 NATO',   grain: '55' },
+  { label: 'PMC X-Tac 5.56 55gr',           brand: 'PMC',        caliber: '5.56 NATO',   grain: '55' },
+  { label: 'Hornady Frontier 5.56',         brand: 'Hornady',    caliber: '5.56 NATO',   grain: '' },
+  { label: 'Winchester .223 55gr',          brand: 'Winchester', caliber: '.223 Rem',    grain: '55' },
+  { label: 'PMC X-Tac .223 55gr',           brand: 'PMC',        caliber: '.223 Rem',    grain: '55' },
+  { label: 'Hornady Frontier .223',         brand: 'Hornady',    caliber: '.223 Rem',    grain: '' },
+  { label: 'Sellier & Bellot .38 Spl 158gr', brand: 'Sellier & Bellot', caliber: '.38 Special', grain: '158' },
+  { label: 'Sellier & Bellot .357 Mag 158gr', brand: 'Sellier & Bellot', caliber: '.357 Magnum', grain: '158' },
+  { label: 'CCI Mini Mag .22 LR 40gr',      brand: 'CCI',        caliber: '.22 LR',      grain: '40' },
+];
+
+// Which calibers map to which firearm
+function calibersForFirearm(fwValue) {
+  const fw = FIREARMS.find(f => f.value === fwValue);
+  return fw ? fw.calibers : [];
+}
+
+// Filter AMMO_COMBOS to those matching any of the given calibers
+function combosForCalibers(calibers) {
+  return AMMO_COMBOS.filter(c => calibers.includes(c.caliber));
+}
+
+const MAG_DEFAULTS_KEY = 'tams_mag_defaults_v2';
+
+function getMagDefaults() {
+  try { return JSON.parse(localStorage.getItem(MAG_DEFAULTS_KEY)) || {}; }
+  catch { return {}; }
+}
+
+function defaultRpmForFirearm(fwValue) {
+  const d = getMagDefaults();
+  const map = {
+    'AR-15 "Frank"': d.frank   ?? 30,
+    'Girsan MC X':   d.girsan  ?? 17,
+    '.22 Buckmark':  d.buckmark ?? 0,
+    'S&W 1854':      d.sw1854  ?? 0,
+  };
+  return map[fwValue] ?? 0;
+}
+
+// ─── MAG DEFAULTS PANEL ───────────────────────────────────────────────────────
+function toggleMagDefaults() {
+  const p = document.getElementById('mag-defaults-panel');
+  if (!p.classList.contains('open')) {
+    const d = getMagDefaults();
+    document.getElementById('md-frank').value    = d.frank    ?? 30;
+    document.getElementById('md-girsan').value   = d.girsan   ?? 17;
+    document.getElementById('md-buckmark').value = d.buckmark ?? 0;
+    document.getElementById('md-sw1854').value   = d.sw1854   ?? 0;
+  }
+  p.classList.toggle('open');
+}
+
+function saveMagDefaults() {
+  localStorage.setItem(MAG_DEFAULTS_KEY, JSON.stringify({
+    frank:    parseInt(document.getElementById('md-frank').value)    || 0,
+    girsan:   parseInt(document.getElementById('md-girsan').value)   || 0,
+    buckmark: parseInt(document.getElementById('md-buckmark').value) || 0,
+    sw1854:   parseInt(document.getElementById('md-sw1854').value)   || 0,
+  }));
+  const saved = document.getElementById('md-saved');
+  saved.style.display = 'inline';
+  setTimeout(() => { saved.style.display = 'none'; }, 2000);
+}
+
+// ─── RANGE DROPDOWN ───────────────────────────────────────────────────────────
+function w1RangeChange() {
+  const sel = document.getElementById('w1-range-select').value;
+  const f   = document.getElementById('w1-range-other-field');
+  f.style.display = sel === 'other' ? 'block' : 'none';
+}
+
+function getRangeName() {
+  const sel = document.getElementById('w1-range-select').value;
+  if (sel === 'other') return document.getElementById('w1-range-other').value.trim();
+  return sel;
+}
+
+// ─── FIREARM ROWS ─────────────────────────────────────────────────────────────
+let fwRowCounter = 0;
+// Cache of available lots per combo key (brand|caliber|grain), loaded on Review
+let lotsCache = {};
+
+function addFirearmRow(fwValue) {
+  fwRowCounter++;
+  const id = fwRowCounter;
+  const fw = fwValue || FIREARMS[0].value;
+  const rpm = defaultRpmForFirearm(fw);
+
+  const div = document.createElement('div');
+  div.className = 'fw-row';
+  div.dataset.rowId = id;
+  div.innerHTML = `
+    <div class="fw-row-header">
+      <span class="fw-row-num">Firearm ${id}</span>
+      <button class="fw-remove-btn" onclick="removeFirearmRow(${id})" title="Remove">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <div class="field" style="margin-bottom:0;">
+        <label>Firearm</label>
+        <select id="fw-sel-${id}" onchange="onFirearmChange(${id})">
+          ${FIREARMS.map(f => `<option value="${f.value}" ${f.value===fw?'selected':''}>${f.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Ammo</label>
+        <select id="fw-ammo-${id}">
+          <option value="">Loading...</option>
+        </select>
+      </div>
+    </div>
+    <div class="fw-mag-row">
+      <div class="field" style="margin-bottom:0;">
+        <label>Mags</label>
+        <input type="number" id="fw-mags-${id}" min="0" placeholder="0" value="" oninput="recalcRounds(${id})">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Rounds / Mag</label>
+        <input type="number" id="fw-rpm-${id}" min="0" value="${rpm}" oninput="recalcRounds(${id})">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Rounds Fired</label>
+        <input type="number" id="fw-rounds-${id}" min="1" placeholder="auto" class="fw-rounds-auto"
+          oninput="onRoundsManual(${id})">
+      </div>
+    </div>
+  `;
+  document.getElementById('w1-fw-rows').appendChild(div);
+  populateAmmoDropdown(id, fw);
+}
+
+function removeFirearmRow(id) {
+  const el = document.querySelector(`.fw-row[data-row-id="${id}"]`);
+  if (el) el.remove();
+}
+
+function onFirearmChange(id) {
+  const fw = document.getElementById(`fw-sel-${id}`).value;
+  document.getElementById(`fw-rpm-${id}`).value = defaultRpmForFirearm(fw);
+  recalcRounds(id);
+  populateAmmoDropdown(id, fw);
+}
+
+function recalcRounds(id) {
+  const mags = parseInt(document.getElementById(`fw-mags-${id}`).value) || 0;
+  const rpm  = parseInt(document.getElementById(`fw-rpm-${id}`).value)  || 0;
+  const inp  = document.getElementById(`fw-rounds-${id}`);
+  if (!inp.dataset.manualOverride) {
+    const calc = mags * rpm;
+    inp.value = calc > 0 ? calc : '';
+    inp.classList.add('fw-rounds-auto');
+    inp.classList.remove('manual-override');
+  }
+}
+
+function onRoundsManual(id) {
+  const inp = document.getElementById(`fw-rounds-${id}`);
+  inp.dataset.manualOverride = '1';
+  inp.classList.remove('fw-rounds-auto');
+  inp.classList.add('manual-override');
+}
+
+// Populate ammo dropdown for a row — shows only combos matching the firearm's calibers
+// For S&W 1854 it shows both .357 and .38 combos
+function populateAmmoDropdown(rowId, fwValue) {
+  const calibers = calibersForFirearm(fwValue);
+  const combos   = combosForCalibers(calibers).filter(comboHasStock);
+  const sel = document.getElementById(`fw-ammo-${rowId}`);
+  sel.innerHTML = combos.length
+    ? combos.map((c, i) =>
+        `<option value="${i}">${c.label}${comboRemainingLabel(c)}</option>`
+      ).join('')
+    : '<option value="">No stock on hand</option>';
+  sel.dataset.fwValue = fwValue;
+}
+
+function getSelectedCombo(rowId) {
+  const sel = document.getElementById(`fw-ammo-${rowId}`);
+  const fwValue = document.getElementById(`fw-sel-${rowId}`).value;
+  const calibers = calibersForFirearm(fwValue);
+  const combos   = combosForCalibers(calibers).filter(comboHasStock);
+  const idx = parseInt(sel.value);
+  return isNaN(idx) ? null : combos[idx];
+}
+
+// ─── RENTAL GUN ───────────────────────────────────────────────────────────────
+function toggleRental() {
+  const on = document.getElementById('w1-rental-toggle').checked;
+  document.getElementById('w1-rental-section').classList.toggle('open', on);
+  if (on) populateRentalAmmoDropdown();
+}
+
+function populateRentalAmmoDropdown() {
+  const sel = document.getElementById('w1-rental-ammo');
+  const inStock = AMMO_COMBOS.filter(comboHasStock);
+  sel.innerHTML = '<option value="">— Select ammo —</option>' +
+    inStock.map((c, i) =>
+      `<option value="${AMMO_COMBOS.indexOf(c)}">${c.label}${comboRemainingLabel(c)}</option>`
+    ).join('');
+}
+
+// ─── INVENTORY MAP ────────────────────────────────────────────────────────────
+// Keyed by "brand|caliber|grain" → total remaining rounds across all lots.
+// Populated once on load (when token is present) and refreshed after each write.
+let inventoryMap = null; // null = not yet loaded; {} = loaded but empty
+
+async function loadInventory() {
+  if (!CFG.token) return;
+  try {
+    // Pull every page from Ammo Tracker (up to 100; paginate if needed)
+    const map = {};
+    let cursor = undefined;
+    do {
+      const body = { page_size: 100 };
+      if (cursor) body.start_cursor = cursor;
+      const url = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/databases/${CFG.ammoDb}/query`);
+      const r = await fetch(url, { method: 'POST', headers: notionHeaders(), body: JSON.stringify(body) });
+      if (!r.ok) break;
+      const data = await r.json();
+      for (const p of data.results) {
+        const pr  = p.properties;
+        const brand   = pr.Brand?.title?.[0]?.text?.content || '';
+        const caliber = pr.Caliber?.rich_text?.[0]?.text?.content || '';
+        const grain   = pr.Grain?.rich_text?.[0]?.text?.content || '';
+        const purchased = pr.Purchased?.number || 0;
+        const fired     = pr.Fired?.number     || 0;
+        const remaining = purchased - fired;
+        if (remaining > 0) {
+          const key = `${brand}|${caliber}|${grain}`;
+          map[key] = (map[key] || 0) + remaining;
+        }
+      }
+      cursor = data.has_more ? data.next_cursor : undefined;
+    } while (cursor);
+    inventoryMap = map;
+    // Refresh all existing ammo dropdowns now that we have live data
+    document.querySelectorAll('.fw-row').forEach(row => {
+      const id = row.dataset.rowId;
+      const fw = document.getElementById(`fw-sel-${id}`)?.value;
+      if (fw) populateAmmoDropdown(id, fw);
+    });
+  } catch (e) {
+    console.warn('TAMS: inventory load failed', e);
+    inventoryMap = {}; // fall back to showing all combos
+  }
+}
+
+function comboHasStock(combo) {
+  if (!inventoryMap) return true; // not loaded yet — show all
+  const key = `${combo.brand}|${combo.caliber}|${combo.grain}`;
+  // grain may be stored with or without 'gr' suffix — check both
+  const keyAlt = `${combo.brand}|${combo.caliber}|${combo.grain}gr`;
+  return (inventoryMap[key] || 0) > 0 || (inventoryMap[keyAlt] || 0) > 0;
+}
+
+function comboRemainingLabel(combo) {
+  if (!inventoryMap) return '';
+  const key    = `${combo.brand}|${combo.caliber}|${combo.grain}`;
+  const keyAlt = `${combo.brand}|${combo.caliber}|${combo.grain}gr`;
+  const qty    = (inventoryMap[key] || 0) + (inventoryMap[keyAlt] || 0);
+  return qty > 0 ? ` (${qty})` : '';
+}
+
+// ─── FIFO CORE ────────────────────────────────────────────────────────────────
+// Query Notion for all lots matching brand/caliber/grain, sorted by date asc,
+// filtered to remaining > 0
+async function getLotsForCombo(combo) {
+  const cacheKey = `${combo.brand}|${combo.caliber}|${combo.grain}`;
+  if (lotsCache[cacheKey]) return lotsCache[cacheKey];
+
+  const filters = [
+    { property: 'Caliber', rich_text: { equals: combo.caliber } },
+  ];
+  if (combo.brand) filters.push({ property: 'Brand', title: { equals: combo.brand } });
+  if (combo.grain) filters.push({ property: 'Grain', rich_text: { equals: combo.grain } });
+
+  const sorts = [{ property: 'Date', direction: 'ascending' }];
+  const data  = await notionQuery(CFG.ammoDb, { and: filters }, sorts);
+
+  const lots = data.results.map(p => {
+    const pr = p.properties;
+    const purchased = pr.Purchased?.number || 0;
+    const fired     = pr.Fired?.number     || 0;
+    const remaining = purchased - fired;
+    return {
+      id:        p.id,
+      brand:     pr.Brand?.title?.[0]?.text?.content || combo.brand,
+      caliber:   pr.Caliber?.rich_text?.[0]?.text?.content || combo.caliber,
+      grain:     pr.Grain?.rich_text?.[0]?.text?.content || combo.grain,
+      date:      pr.Date?.date?.start || '',
+      purchased, fired, remaining,
+    };
+  }).filter(l => l.remaining > 0);
+
+  lotsCache[cacheKey] = lots;
+  return lots;
+}
+
+// Compute FIFO allocation: returns { allocation: [{lot, use}], shortfall }
+function computeFifo(lots, roundsNeeded) {
+  const allocation = [];
+  let remaining = roundsNeeded;
+  for (const lot of lots) {
+    if (remaining <= 0) break;
+    const use = Math.min(lot.remaining, remaining);
+    allocation.push({ lot, use });
+    remaining -= use;
+  }
+  return { allocation, shortfall: remaining };
+}
+
+// ─── WIDGET 1: REVIEW ────────────────────────────────────────────────────────
+// w1Plan stores the computed plan awaiting confirmation
+let w1Plan = null;
+
+async function w1Review() {
+  if (!requireConfig('w1-feedback')) return;
+
+  const rangeName = getRangeName();
+  const date      = document.getElementById('w1-date').value;
+  const rows      = [...document.querySelectorAll('.fw-row')];
+
+  if (!rangeName) { setFeedback('w1-feedback', '⚠ Enter a range name.', 'error'); return; }
+  if (!date)      { setFeedback('w1-feedback', '⚠ Select a date.', 'error'); return; }
+  if (rows.length === 0) { setFeedback('w1-feedback', '⚠ Add at least one firearm.', 'error'); return; }
+
+  // Validate all rows
+  const sessionRows = [];
+  for (const row of rows) {
+    const id     = row.dataset.rowId;
+    const fw     = document.getElementById(`fw-sel-${id}`).value;
+    const combo  = getSelectedCombo(id);
+    const rounds = parseInt(document.getElementById(`fw-rounds-${id}`).value);
+    if (!combo) { setFeedback('w1-feedback', `⚠ Select ammo for Firearm ${id}.`, 'error'); return; }
+    if (!rounds || rounds < 1) { setFeedback('w1-feedback', `⚠ Enter rounds fired for Firearm ${id}.`, 'error'); return; }
+    sessionRows.push({ id, fw, combo, rounds });
+  }
+
+  // Rental
+  let rentalEntry = null;
+  if (document.getElementById('w1-rental-toggle').checked) {
+    const rIdx    = parseInt(document.getElementById('w1-rental-ammo').value);
+    const rRounds = parseInt(document.getElementById('w1-rental-rounds').value);
+    if (!isNaN(rIdx) && rRounds > 0) {
+      rentalEntry = { combo: AMMO_COMBOS[rIdx], rounds: rRounds };
+    }
+  }
+
+  // Loading state
+  const btn = document.getElementById('w1-review-btn');
+  btn.disabled = true;
+  document.getElementById('w1-feedback').innerHTML = '<span class="spinner"></span> Loading ammo lots from Notion...';
+  document.getElementById('w1-feedback').className = 'feedback visible loading';
+  lotsCache = {};
+
+  try {
+    // Compute FIFO for each row
+    const rowPlans = [];
+    for (const row of sessionRows) {
+      const lots = await getLotsForCombo(row.combo);
+      const { allocation, shortfall } = computeFifo(lots, row.rounds);
+      if (shortfall > 0) throw new Error(
+        `Insufficient ammo for ${row.combo.label}: need ${row.rounds}, only ${row.rounds - shortfall} available.`
+      );
+      rowPlans.push({ ...row, allocation });
+    }
+
+    // FIFO for rental if applicable
+    let rentalPlan = null;
+    if (rentalEntry) {
+      const lots = await getLotsForCombo(rentalEntry.combo);
+      const { allocation, shortfall } = computeFifo(lots, rentalEntry.rounds);
+      if (shortfall > 0) throw new Error(
+        `Insufficient ammo for rental ${rentalEntry.combo.label}: need ${rentalEntry.rounds}, only ${rentalEntry.rounds - shortfall} available.`
+      );
+      rentalPlan = { ...rentalEntry, allocation };
+    }
+
+    w1Plan = { rangeName, date, rowPlans, rentalPlan };
+    hideFeedback('w1-feedback');
+    renderReview(w1Plan);
+
+  } catch (e) {
+    setFeedback('w1-feedback', '✕ ' + e.message, 'error');
+  }
+  btn.disabled = false;
+}
+
+function renderReview(plan) {
+  let html = '';
+
+  // Session info
+  html += `<div class="review-section">
+    <div class="review-section-label">Session</div>
+    <div class="review-line"><span class="hl">${escH(plan.rangeName)}</span> — <span class="hl">${plan.date}</span></div>
+  </div>`;
+
+  // Range Log entries
+  html += `<div class="review-section">
+    <div class="review-section-label">Range Log entries (${plan.rowPlans.length})</div>`;
+  for (const rp of plan.rowPlans) {
+    html += `<div class="review-line">
+      <span class="hl">${escH(rp.fw)}</span> — ${escH(rp.combo.label)} — <span class="hl">${rp.rounds} rds</span>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // FIFO allocations
+  html += `<div class="review-section">
+    <div class="review-section-label">Ammo Tracker — FIFO deductions</div>`;
+  for (const rp of plan.rowPlans) {
+    for (const a of rp.allocation) {
+      html += `<div class="review-line">
+        ${escH(a.lot.brand)} ${escH(a.lot.grain)} ${escH(a.lot.caliber)}
+        <span class="dim">lot ${escH(a.lot.date || 'n/d')}</span>
+        → <span class="hl">-${a.use} rds</span>
+        <span class="dim">(${a.lot.remaining} avail)</span>
+      </div>`;
+    }
+  }
+  html += `</div>`;
+
+  // Rental
+  if (plan.rentalPlan) {
+    html += `<div class="review-section">
+      <div class="review-section-label">Rental (ammo deduction only — not in Range Log)</div>
+      <div class="review-line"><span class="hl">${escH(plan.rentalPlan.combo.label)}</span> — <span class="hl">${plan.rentalPlan.rounds} rds</span></div>`;
+    for (const a of plan.rentalPlan.allocation) {
+      html += `<div class="review-line">
+        ${escH(a.lot.brand)} ${escH(a.lot.grain)} ${escH(a.lot.caliber)}
+        <span class="dim">lot ${escH(a.lot.date || 'n/d')}</span>
+        → <span class="hl">-${a.use} rds</span>
+        <span class="dim">(${a.lot.remaining} avail)</span>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  document.getElementById('w1-review-content').innerHTML = html;
+  document.getElementById('w1-review-modal').classList.add('open');
+}
+
+function escH(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function w1CancelReview() {
+  document.getElementById('w1-review-modal').classList.remove('open');
+  w1Plan = null;
+}
+
+// ─── WIDGET 1: CONFIRM & WRITE ────────────────────────────────────────────────
+async function w1Confirm() {
+  if (!w1Plan) return;
+  const btn = document.getElementById('w1-confirm-btn');
+  btn.disabled = true;
+
+  const showStatus = (msg) => {
+    document.getElementById('w1-feedback').innerHTML = `<span class="spinner"></span> ${escH(msg)}`;
+    document.getElementById('w1-feedback').className = 'feedback visible loading';
+  };
+
+  try {
+    // 1. Write Range Log entries (one per firearm row)
+    for (const rp of w1Plan.rowPlans) {
+      showStatus(`Writing Range Log: ${rp.fw}...`);
+      await notionCreate(CFG.rangeDb, {
+        'Range':        { title: [{ text: { content: w1Plan.rangeName } }] },
+        'Date':         { date:  { start: w1Plan.date } },
+        'Weapon':       { select: { name: rp.fw } },
+        'Rounds Fired': { number: rp.rounds },
+      });
+    }
+
+    // 2. Update Fired counts — firearm rows
+    for (const rp of w1Plan.rowPlans) {
+      for (const a of rp.allocation) {
+        showStatus(`Updating ammo lot: ${a.lot.brand} ${a.lot.caliber}...`);
+        await notionUpdate(a.lot.id, {
+          'Fired': { number: a.lot.fired + a.use },
+        });
+      }
+    }
+
+    // 3. Update Fired counts — rental (if any)
+    if (w1Plan.rentalPlan) {
+      for (const a of w1Plan.rentalPlan.allocation) {
+        showStatus(`Updating rental ammo lot: ${a.lot.brand} ${a.lot.caliber}...`);
+        await notionUpdate(a.lot.id, {
+          'Fired': { number: a.lot.fired + a.use },
+        });
+      }
+    }
+
+    // Success
+    const totalRounds = w1Plan.rowPlans.reduce((s, r) => s + r.rounds, 0)
+      + (w1Plan.rentalPlan?.rounds || 0);
+    setFeedback('w1-feedback',
+      `✓ Session logged!\n${w1Plan.rowPlans.length} Range Log ${w1Plan.rowPlans.length===1?'entry':'entries'} + ${totalRounds} rounds deducted from Ammo Tracker.`,
+      'success'
+    );
+
+    document.getElementById('w1-review-modal').classList.remove('open');
+    w1Plan = null;
+
+    // Reset form
+    document.getElementById('w1-fw-rows').innerHTML = '';
+    fwRowCounter = 0;
+    lotsCache = {};
+    await loadInventory(); // refresh stock counts after write
+    document.getElementById('w1-rental-toggle').checked = false;
+    document.getElementById('w1-rental-section').classList.remove('open');
+    document.getElementById('w1-rental-rounds').value = '';
+    addFirearmRow(); // start fresh with one row
+
+  } catch (e) {
+    setFeedback('w1-feedback', '✕ ' + e.message, 'error');
+  }
+  btn.disabled = false;
+}
+
+// ─── WIDGET 2: COMBO DROPDOWNS ────────────────────────────────────────────────
+// Populated from live Notion inventory at load time (same inventoryMap used by W1)
+// Each field has a dropdown of known values + a free-text fallback input
+
+async function w2PopulateDropdowns() {
+  if (!inventoryMap) return;
+
+  // Extract unique values from inventory keys ("brand|caliber|grain")
+  const brands    = new Set();
+  const calibers  = new Set();
+  const grains    = new Set();
+  const retailers = new Set();
+
+  Object.keys(inventoryMap).forEach(key => {
+    const [b, c, g] = key.split('|');
+    if (b) brands.add(b);
+    if (c) calibers.add(c);
+    if (g) grains.add(g);
+  });
+
+  // Also seed brands/calibers/grains from AMMO_COMBOS so known combos always appear
+  AMMO_COMBOS.forEach(c => {
+    if (c.brand)   brands.add(c.brand);
+    if (c.caliber) calibers.add(c.caliber);
+    if (c.grain)   grains.add(c.grain);
+  });
+
+  const fill = (selId, values) => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    const sorted = [...values].sort();
+    sel.innerHTML = '<option value="">— Select or type below —</option>' +
+      sorted.map(v => `<option value="${v}">${v}</option>`).join('') +
+      '<option value="__other__">Other (type below)</option>';
+  };
+
+  // Pull retailer values from all Notion lots in the inventoryMap source data
+  // We re-query briefly to get retailer names — stored separately from inventoryMap keys
+  try {
+    const url = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/databases/${CFG.ammoDb}/query`);
+    const r = await fetch(url, { method: 'POST', headers: notionHeaders(), body: JSON.stringify({ page_size: 100 }) });
+    if (r.ok) {
+      const data = await r.json();
+      data.results.forEach(p => {
+        const ret = p.properties?.Retailer?.rich_text?.[0]?.text?.content;
+        if (ret && ret.trim()) retailers.add(ret.trim());
+      });
+    }
+  } catch (_) {}
+
+  fill('w2-brand-sel',    brands);
+  fill('w2-caliber-sel',  calibers);
+  fill('w2-grain-sel',    grains);
+  fill('w2-retailer-sel', retailers);
+}
+
+// When a dropdown selection is made, push value into the text input
+// and hide the text input unless "Other" is chosen
+function w2ComboChange(field) {
+  const selId   = `w2-${field}-sel`;
+  const inputId = `w2-${field}`;
+  const sel     = document.getElementById(selId);
+  const inp     = document.getElementById(inputId);
+  if (!sel || !inp) return;
+
+  if (sel.value === '__other__' || sel.value === '') {
+    inp.style.display = 'block';
+    inp.value = '';
+    inp.focus();
+  } else {
+    inp.style.display = 'none';
+    inp.value = sel.value;
+  }
+  w2UpdateLotName();
+}
+
+function w2GetField(field) {
+  const inp = document.getElementById(`w2-${field}`);
+  return inp ? inp.value.trim() : '';
+}
+
+function w2UpdateLotName() {
+  const brand   = w2GetField('brand');
+  const caliber = w2GetField('caliber');
+  const grain   = w2GetField('grain');
+
+  const preview = document.getElementById('w2-lot-preview');
+  const nameEl  = document.getElementById('w2-lot-name');
+  if (!preview || !nameEl) return;
+
+  if (brand || caliber || grain) {
+    const parts = [brand, caliber, grain].filter(Boolean);
+    nameEl.textContent = parts.join('-');
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+function w2UpdatePpr() {
+  const qty   = parseInt(document.getElementById('w2-qty')?.value)   || 0;
+  const value = parseFloat(document.getElementById('w2-value')?.value) || 0;
+  const preview = document.getElementById('w2-ppr-preview');
+  const pprEl   = document.getElementById('w2-ppr-value');
+  if (!preview || !pprEl) return;
+
+  if (qty > 0 && value > 0) {
+    const ppr = value / qty;
+    pprEl.textContent = `$${ppr.toFixed(3)} / round   (${qty} rds × $${(value/qty).toFixed(3)} = $${value.toFixed(2)})`;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+// ─── WIDGET 2: LOG PURCHASE ───────────────────────────────────────────────────
+async function logPurchase() {
+  if (!requireConfig('w2-feedback')) return;
+
+  const brand   = w2GetField('brand');
+  const caliber = w2GetField('caliber');
+  const grain   = w2GetField('grain');
+  const qty     = parseInt(document.getElementById('w2-qty').value);
+  const value   = parseFloat(document.getElementById('w2-value').value);
+  const retailer= document.getElementById('w2-retailer').value.trim();
+  const date    = document.getElementById('w2-date').value;
+
+  if (!brand)           { setFeedback('w2-feedback', '⚠ Enter a brand.',    'error'); return; }
+  if (!caliber)         { setFeedback('w2-feedback', '⚠ Enter a caliber.',  'error'); return; }
+  if (!qty || qty < 1)  { setFeedback('w2-feedback', '⚠ Enter quantity.',   'error'); return; }
+  if (!value || value <= 0) { setFeedback('w2-feedback', '⚠ Enter a total value.', 'error'); return; }
+
+  // Build lot name: Brand-Caliber-Grain
+  const lotParts = [brand, caliber, grain].filter(Boolean);
+  const lotName  = lotParts.join('-');
+
+  document.getElementById('w2-feedback').innerHTML = '<span class="spinner"></span> Adding to Notion...';
+  document.getElementById('w2-feedback').className = 'feedback visible loading';
+
+  try {
+    const props = {
+      'Brand':     { title: [{ text: { content: lotName } }] },
+      'Caliber':   { rich_text: [{ text: { content: caliber } }] },
+      'Grain':     { rich_text: [{ text: { content: grain } }] },
+      'Purchased': { number: qty },
+      'Fired':     { number: 0 },
+      'Retailer':  { rich_text: [{ text: { content: retailer } }] },
+    };
+    if (date)  props['Date']  = { date: { start: date } };
+    if (value) props['Value'] = { number: value };
+
+    await notionCreate(CFG.ammoDb, props);
+
+    const ppr = `$${(value / qty).toFixed(3)}/rd`;
+    setFeedback('w2-feedback',
+      `✓ Lot logged!\n${lotName}\n${qty} rds @ ${ppr} (total $${value.toFixed(2)})`,
+      'success'
+    );
+
+    // Refresh inventory so W1 dropdowns reflect the new lot
+    await loadInventory();
+    await w2PopulateDropdowns();
+
+    // Reset form
+    ['w2-brand-sel','w2-caliber-sel','w2-grain-sel','w2-retailer-sel'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    ['w2-brand','w2-caliber','w2-grain','w2-qty','w2-value','w2-retailer'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.value = ''; el.style.display = id.endsWith('-sel') ? 'block' : 'none'; }
+    });
+    document.getElementById('w2-date').value = todayIso();
+    document.getElementById('w2-lot-preview').style.display  = 'none';
+    document.getElementById('w2-ppr-preview').style.display  = 'none';
+
+  } catch (e) {
+    setFeedback('w2-feedback', '✕ ' + e.message, 'error');
+  }
+}
+
+// ─── PRICE MONITOR: Claude-powered web lookup ─────────────────────────────────
+async function fetchWithClaude(prompt) {
+  const key = CFG.anthropic;
+  if (!key) throw new Error('Anthropic API key not configured. Add it in ⚙ Config.');
+
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.error?.message || `Anthropic API error ${r.status}`);
+  }
+  const data = await r.json();
+  const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
+  return text;
+}
+
+function renderPriceCards(containerId, items) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = items.map(item => {
+    const badge = item.badge ? `<span class="price-badge ${item.badgeType}">${item.badge}</span>` : '';
+    return `
+      <div class="price-card">
+        <div class="price-name">
+          ${item.name}
+          ${item.sub ? `<small>${item.sub}</small>` : ''}
+        </div>
+        ${badge}
+        <div class="price-value">
+          ${item.price}
+          ${item.unit ? `<small>${item.unit}</small>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ─── WIDGET 3: CONSTANTS ──────────────────────────────────────────────────────
+
+const W3_CALIBERS = [
+  {
+    id: '9mm',
+    label: '9mm',
+    searchTerms: ['9mm', '9x19', '9mm Luger'],
+    subtype: 'FMJ 115gr',
+    subtypeNote: 'FMJ · 115gr',
+    tier1: ['PMC', 'Fiocchi', 'Sellier & Bellot', 'Aguila'],
+    tier2: ['Magtech', 'Blazer Brass', 'Blazer', 'PPU', 'Prvi Partizan', 'Federal American Eagle', 'Federal AE', 'Browning', 'Hornady Frontier', 'Frontier'],
+  },
+  {
+    id: '556',
+    label: '5.56 / .223',
+    searchTerms: ['5.56 NATO', '.223 Remington', '5.56x45'],
+    subtype: 'FMJ or FMJBT 55gr',
+    subtypeNote: 'FMJ · FMJBT · 55gr',
+    tier1: ['IMI', 'PMC', 'AAC', 'Fiocchi'],
+    tier2: ['Hornady Frontier', 'Frontier', 'Sellier & Bellot', 'PPU', 'Prvi Partizan'],
+  },
+  {
+    id: '22lr',
+    label: '.22 LR',
+    searchTerms: ['.22 LR', '.22 Long Rifle'],
+    subtype: '36gr HP or 40gr LRN',
+    subtypeNote: '36gr HP · 40gr LRN',
+    tier1: ['CCI', 'Federal AutoMatch', 'Aguila'],
+    tier2: ['Blazer', 'Winchester M-22', 'Federal Champion', 'Remington Golden Bullet'],
+  },
+  {
+    id: '38spl',
+    label: '.38 Special',
+    searchTerms: ['.38 Special', '.38 Spl'],
+    subtype: 'LRN or FP 158gr — NO pointed/JHP (tubular magazine)',
+    subtypeNote: 'LRN · FP · 158gr',
+    tier1: ['Sellier & Bellot', 'Magtech', 'Fiocchi'],
+    tier2: ['PMC', 'Blazer Brass', 'Blazer', 'Federal American Eagle', 'Federal AE', 'Winchester'],
+  },
+  {
+    id: '357mag',
+    label: '.357 Magnum',
+    searchTerms: ['.357 Magnum', '.357 Mag'],
+    subtype: 'LRN or FP 158gr — NO pointed/JHP (tubular magazine)',
+    subtypeNote: 'LRN · FP · 158gr',
+    tier1: ['Sellier & Bellot', 'Magtech', 'Fiocchi'],
+    tier2: ['Blazer Brass', 'Blazer', 'Winchester', 'Federal American Eagle', 'Federal AE'],
+  },
+];
+
+// ─── WIDGET 3: INIT TOGGLES ───────────────────────────────────────────────────
+function w3InitToggles() {
+  const container = document.getElementById('w3-cal-toggles');
+  if (!container) return;
+  container.innerHTML = W3_CALIBERS.map(c => `
+    <button class="cal-toggle active" data-cal="${c.id}" onclick="w3ToggleCal('${c.id}', this)">
+      ${c.label}
+    </button>
+  `).join('');
+}
+
+function w3ToggleCal(id, btn) {
+  btn.classList.toggle('active');
+}
+
+function w3SelectedCalibers() {
+  return W3_CALIBERS.filter(c => {
+    const btn = document.querySelector(`.cal-toggle[data-cal="${c.id}"]`);
+    return btn && btn.classList.contains('active');
+  });
+}
+
+// ─── WIDGET 3: FETCH AVG PAID FROM NOTION ────────────────────────────────────
+// For a given caliber's search terms, query Ammo Tracker and compute
+// average price-per-round across the last 3 purchases per brand
+async function w3FetchAvgPaid(calDef) {
+  const avgByBrand = {};
+  const allBrands = [...calDef.tier1, ...calDef.tier2];
+
+  // Query all lots for this caliber's search terms
+  const calFilters = calDef.searchTerms.map(t => ({
+    property: 'Caliber', rich_text: { contains: t.split(' ')[0] }
+  }));
+
+  try {
+    const data = await notionQuery(CFG.ammoDb,
+      { or: calFilters },
+      [{ property: 'Date', direction: 'descending' }]
+    );
+
+    // Group lots by brand (fuzzy match against our brand list)
+    const byBrand = {};
+    for (const page of data.results) {
+      const pr        = page.properties;
+      const lotName   = pr.Brand?.title?.[0]?.text?.content || '';
+      const value     = pr.Value?.number || 0;
+      const purchased = pr.Purchased?.number || 0;
+      if (!value || !purchased) continue;
+      const ppr = value / purchased;
+
+      // Match lot name against known brands
+      const matchedBrand = allBrands.find(b =>
+        lotName.toLowerCase().includes(b.toLowerCase().split(' ')[0])
+      );
+      if (!matchedBrand) continue;
+
+      if (!byBrand[matchedBrand]) byBrand[matchedBrand] = [];
+      byBrand[matchedBrand].push(ppr);
+    }
+
+    // Average the last 3 per brand
+    for (const [brand, pprs] of Object.entries(byBrand)) {
+      const last3 = pprs.slice(0, 3);
+      avgByBrand[brand] = last3.reduce((a, b) => a + b, 0) / last3.length;
+    }
+  } catch (_) {}
+
+  return avgByBrand;
+}
+
+// ─── WIDGET 3: MAIN CHECK ────────────────────────────────────────────────────
+async function checkAmmoPrices() {
+  if (!requireConfig('w3-feedback')) return;
+
+  const selected = w3SelectedCalibers();
+  if (selected.length === 0) {
+    setFeedback('w3-feedback', '⚠ Select at least one caliber.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('w3-btn');
+  btn.disabled = true;
+  document.getElementById('w3-results').innerHTML = '';
+  document.getElementById('w3-feedback').innerHTML = '<span class="spinner"></span> Fetching your avg paid prices from Notion...';
+  document.getElementById('w3-feedback').className = 'feedback visible loading';
+
+  try {
+    // Step 1: fetch avg paid per brand from Notion for each selected caliber
+    const avgPaidMap = {};
+    for (const cal of selected) {
+      document.getElementById('w3-feedback').innerHTML =
+        `<span class="spinner"></span> Loading avg paid — ${cal.label}...`;
+      avgPaidMap[cal.id] = await w3FetchAvgPaid(cal);
+    }
+
+    // Step 2: build prompt for Claude with web search
+    document.getElementById('w3-feedback').innerHTML =
+      '<span class="spinner"></span> Searching for current prices...';
+
+    const allBrandsForPrompt = selected.map(cal => {
+      const brands = [...cal.tier1, ...cal.tier2].join(', ');
+      return `${cal.label} — ${cal.subtype} (search terms: ${cal.searchTerms.join(' or ')}): brands to check — ${brands}`;
+    }).join('\n');
+
+    const prompt = `Search AmmoSeek.com and GunDeals.com for current IN-STOCK prices on the following ammunition calibers and specific brands only. For each brand/caliber combination that has in-stock results, return the lowest price per round available. Ignore out-of-stock listings entirely.
+
+IMPORTANT: For .38 Special and .357 Magnum, return ONLY flat-nose (FP) or round-nose (LRN/RN) bullet profiles. Do NOT include JHP, JSP, or any pointed/spitzer profiles — these are for a lever-action rifle with a tubular magazine where pointed bullets are unsafe.
+
+Return a JSON array ONLY — no markdown, no preamble — in this exact format:
+[{"caliber_id":"9mm","brand":"PMC","ppr":0.19,"retailer":"Lucky Gunner","in_stock":true},...]
+
+Use these caliber_id values exactly: 9mm, 556, 22lr, 38spl, 357mag.
+Only return results for brands explicitly listed below. If a brand has no in-stock results, omit it entirely.
+
+${allBrandsForPrompt}`;
+
+    const raw = await fetchWithClaude(prompt);
+
+    // Step 3: parse response
+    let results = [];
+    try {
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (jsonMatch) results = JSON.parse(jsonMatch[0]);
+    } catch (_) {}
+
+    if (results.length === 0) {
+      setFeedback('w3-feedback', '⚠ No structured results returned. Raw response:\n\n' + raw, '');
+      btn.disabled = false;
+      return;
+    }
+
+    // Step 4: render
+    hideFeedback('w3-feedback');
+    w3RenderResults(selected, results, avgPaidMap);
+
+  } catch (e) {
+    setFeedback('w3-feedback', '✕ ' + e.message, 'error');
+  }
+  btn.disabled = false;
+}
+
+// ─── WIDGET 3: RENDER ─────────────────────────────────────────────────────────
+function w3RenderResults(selected, results, avgPaidMap) {
+  const container = document.getElementById('w3-results');
+  let html = '';
+
+  for (const cal of selected) {
+    const calResults = results.filter(r => r.caliber_id === cal.id && r.in_stock !== false);
+    const avg = avgPaidMap[cal.id] || {};
+
+    html += `<div class="w3-cal-block">`;
+    html += `<div class="w3-cal-heading">${cal.label} <span style="font-family:var(--mono);font-size:10px;color:var(--text3);font-weight:400;letter-spacing:0.06em;">${cal.subtypeNote}</span></div>`;
+
+    // Render tier 1 then tier 2
+    for (const tierNum of [1, 2]) {
+      const tierBrands = tierNum === 1 ? cal.tier1 : cal.tier2;
+      const tierResults = calResults.filter(r =>
+        tierBrands.some(b => r.brand?.toLowerCase().includes(b.toLowerCase().split(' ')[0]))
+      );
+      if (tierResults.length === 0) continue;
+
+      html += `
+        <div style="margin-bottom:4px;">
+          <span class="w3-tier-label w3-tier-${tierNum}">Tier ${tierNum}</span>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);margin-bottom:8px;">
+          <div class="w3-result-row header">
+            <span>Brand</span>
+            <span style="text-align:right">$/rd</span>
+            <span style="text-align:right">Avg paid</span>
+            <span style="text-align:right">vs. avg</span>
+            <span style="text-align:right">Retailer</span>
+          </div>`;
+
+      for (const r of tierResults) {
+        const ppr  = parseFloat(r.ppr) || 0;
+        const avgP = avg[r.brand] || null;
+        let deltaHtml = '<span class="w3-delta-neu">—</span>';
+        if (avgP && ppr) {
+          const diff = ppr - avgP;
+          const sign = diff < 0 ? '↓' : '↑';
+          const cls  = diff < 0 ? 'w3-delta-good' : diff > 0.005 ? 'w3-delta-bad' : 'w3-delta-neu';
+          deltaHtml  = `<span class="${cls}">${sign} $${Math.abs(diff).toFixed(3)}</span>`;
+        }
+        const avgDisplay = avgP ? `$${avgP.toFixed(3)}` : '—';
+        const pprDisplay = ppr  ? `$${ppr.toFixed(3)}`  : 'N/A';
+        const retailer   = (r.retailer || '').substring(0, 14);
+
+        html += `
+          <div class="w3-result-row">
+            <span class="w3-brand">${escH(r.brand || '—')}</span>
+            <span class="w3-ppr">${pprDisplay}</span>
+            <span class="w3-avg">${avgDisplay}</span>
+            ${deltaHtml}
+            <span class="w3-retailer">${escH(retailer)}</span>
+          </div>`;
+      }
+      html += `</div>`;
+    }
+
+    if (calResults.length === 0) {
+      html += `<div class="w3-no-results">No in-stock results found for Tier 1/2 brands.</div>`;
+    }
+
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+// ─── WIDGET 4: CONSTANTS ──────────────────────────────────────────────────────
+const W4_DB_ID  = '31a48b32-cb0b-8016-8e30-000bf92a9281'; // Wishlist data source
+let w4Items     = []; // active Watching items loaded from Notion
+let w4NewEntry  = null; // pending new item awaiting confirmation
+
+// ─── WIDGET 4: LOAD WATCHLIST ────────────────────────────────────────────────
+async function w4LoadWatchlist() {
+  if (!CFG.token) {
+    document.getElementById('w4-loading').textContent = '⚠ Configure Notion token to load wishlist.';
+    return;
+  }
+  try {
+    const data = await notionQuery(W4_DB_ID,
+      { property: 'Status', select: { equals: 'Watching' } },
+      [{ property: 'Created', direction: 'ascending' }]
+    );
+    w4Items = data.results.map(p => {
+      const pr = p.properties;
+      return {
+        id:           p.id,
+        name:         pr.Name?.title?.[0]?.text?.content || 'Unknown',
+        model:        pr['Model/UPC']?.rich_text?.[0]?.text?.content || '',
+        targetPrice:  pr['Target Price']?.number || null,
+        lastPrice:    pr['Last Checked Price']?.number || null,
+        lastDate:     pr['Last Checked Date']?.date?.start || null,
+      };
+    });
+    w4RenderWatchlist();
+  } catch (e) {
+    document.getElementById('w4-loading').textContent = '✕ Failed to load: ' + e.message;
+  }
+}
+
+// ─── WIDGET 4: RENDER WATCHLIST CARDS ────────────────────────────────────────
+function w4RenderWatchlist() {
+  const container = document.getElementById('w4-watchlist');
+  if (w4Items.length === 0) {
+    container.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 0;">No items on watchlist.</div>';
+    return;
+  }
+  container.innerHTML = w4Items.map((item, idx) => {
+    const target    = item.targetPrice ? `$${item.targetPrice.toLocaleString()}` : '—';
+    const lastPrice = item.lastPrice   ? `$${item.lastPrice.toLocaleString()}`   : '—';
+    const lastDate  = item.lastDate    || '—';
+
+    let deltaHtml = '';
+    let badgeHtml = '<span class="w4-status-badge w4-badge-watch">WATCHING</span>';
+    if (item.lastPrice && item.targetPrice) {
+      const diff = item.lastPrice - item.targetPrice;
+      if (diff <= 0) {
+        deltaHtml = `<span class="w4-price-delta-good">↓ $${Math.abs(diff).toLocaleString()} under target</span>`;
+        badgeHtml = '<span class="w4-status-badge w4-badge-under">✓ UNDER TARGET</span>';
+      } else {
+        deltaHtml = `<span class="w4-price-delta-bad">↑ $${diff.toLocaleString()} over target</span>`;
+        badgeHtml = '<span class="w4-status-badge w4-badge-over">OVER TARGET</span>';
+      }
+    }
+
+    return `
+      <div class="w4-card">
+        <div>
+          <div class="w4-card-name">${escH(item.name)}</div>
+          <div class="w4-card-meta">${escH(item.model)} · checked ${escH(lastDate)}</div>
+          ${badgeHtml}
+          <div class="w4-card-prices">
+            <div class="w4-price-block">
+              <span class="w4-price-label">Target</span>
+              <span class="w4-price-val">${target}</span>
+            </div>
+            <div class="w4-price-block">
+              <span class="w4-price-label">Last Price</span>
+              <span class="w4-price-val">${lastPrice}</span>
+            </div>
+            <div>${deltaHtml}</div>
+          </div>
+        </div>
+        <div class="w4-card-actions">
+          <button class="w4-action-btn purchased" onclick="w4SetStatus('${item.id}', 'Purchased', ${idx})">✓ Purchased</button>
+          <button class="w4-action-btn remove"    onclick="w4SetStatus('${item.id}', 'Removed',   ${idx})">✕ Remove</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── WIDGET 4: STATUS CHANGE ─────────────────────────────────────────────────
+async function w4SetStatus(pageId, status, idx) {
+  const item = w4Items[idx];
+  if (!item) return;
+  if (!confirm(`Mark "${item.name}" as ${status}?`)) return;
+  try {
+    await notionUpdate(pageId, { 'Status': { select: { name: status } } });
+    w4Items.splice(idx, 1);
+    w4RenderWatchlist();
+  } catch (e) {
+    alert('Failed to update status: ' + e.message);
+  }
+}
+
+// ─── WIDGET 4: ADD PANEL ─────────────────────────────────────────────────────
+function w4ToggleAddPanel() {
+  const p = document.getElementById('w4-add-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  if (p.style.display === 'none') {
+    document.getElementById('w4-review-panel').style.display = 'none';
+    hideFeedback('w4-add-feedback');
+    w4NewEntry = null;
+  }
+}
+
+// ─── WIDGET 4: RESEARCH & ADD ─────────────────────────────────────────────────
+async function w4ResearchAndAdd() {
+  if (!requireConfig('w4-add-feedback')) return;
+  const name     = document.getElementById('w4-new-name').value.trim();
+  const model    = document.getElementById('w4-new-model').value.trim();
+  const target   = parseFloat(document.getElementById('w4-new-target').value) || null;
+  const category = document.getElementById('w4-new-category').value;
+
+  if (!name)  { setFeedback('w4-add-feedback', '⚠ Enter a firearm name.',     'error'); return; }
+  if (!model) { setFeedback('w4-add-feedback', '⚠ Enter a model number/UPC.', 'error'); return; }
+
+  document.getElementById('w4-add-feedback').innerHTML = '<span class="spinner"></span> Researching firearm...';
+  document.getElementById('w4-add-feedback').className = 'feedback visible loading';
+
+  try {
+    const prompt = `Research the firearm: "${name}" (model/UPC: ${model}, category: ${category}).
+
+Provide a detailed review summary in this exact markdown structure — use the same section headings and style throughout:
+
+**Overall view:** [2-3 sentence overview]
+
+# ⭐ Overall Consensus
+[bullet points on general reception]
+
+# 🔥 Performance & Shooting Characteristics
+### Recoil & Control
+[details]
+### Reliability
+[details]
+
+# 🛠️ Build Quality & Features
+### Strengths
+[bullet list]
+### Weaknesses / Critiques
+[bullet list]
+
+# 💰 Price & Value
+[MSRP, street price, value assessment]
+
+# 🧭 Bottom Line
+[2-3 sentence summary]
+
+Return ONLY the markdown content above. No preamble, no JSON.`;
+
+    const commentary = await fetchWithClaude(prompt);
+
+    w4NewEntry = { name, model, target, category, commentary };
+
+    // Show review panel
+    document.getElementById('w4-review-content').textContent = commentary;
+    document.getElementById('w4-review-panel').style.display = 'block';
+    hideFeedback('w4-add-feedback');
+
+  } catch (e) {
+    setFeedback('w4-add-feedback', '✕ ' + e.message, 'error');
+  }
+}
+
+function w4CancelReview() {
+  document.getElementById('w4-review-panel').style.display = 'none';
+  w4NewEntry = null;
+}
+
+// ─── WIDGET 4: CONFIRM ADD ───────────────────────────────────────────────────
+async function w4ConfirmAdd() {
+  if (!w4NewEntry) return;
+  const btn = document.getElementById('w4-confirm-btn');
+  btn.disabled = true;
+
+  document.getElementById('w4-add-feedback').innerHTML = '<span class="spinner"></span> Writing to Notion...';
+  document.getElementById('w4-add-feedback').className = 'feedback visible loading';
+
+  try {
+    const props = {
+      'Name':      { title: [{ text: { content: w4NewEntry.name } }] },
+      'Model/UPC': { rich_text: [{ text: { content: w4NewEntry.model } }] },
+      'Status':    { select: { name: 'Watching' } },
+    };
+    if (w4NewEntry.target) props['Target Price'] = { number: w4NewEntry.target };
+    if (w4NewEntry.category) {
+      // Store category in Tags multi-select
+      props['Tags'] = { multi_select: [{ name: w4NewEntry.category }] };
+    }
+
+    // Create the page
+    const page = await notionCreate(W4_DB_ID, props);
+
+    // Write the commentary as page content
+    if (page?.id && w4NewEntry.commentary) {
+      await notionUpdate(page.id, {}); // ensure page exists
+      const updateUrl = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/blocks/${page.id}/children`);
+      await fetch(updateUrl, {
+        method: 'PATCH',
+        headers: notionHeaders(),
+        body: JSON.stringify({
+          children: [{
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [{ type: 'text', text: { content: w4NewEntry.commentary } }]
+            }
+          }]
+        })
+      });
+    }
+
+    setFeedback('w4-add-feedback',
+      `✓ ${w4NewEntry.name} added to Notion Wishlist!`,
+      'success'
+    );
+
+    // Reset and reload
+    document.getElementById('w4-review-panel').style.display = 'none';
+    document.getElementById('w4-new-name').value    = '';
+    document.getElementById('w4-new-model').value   = '';
+    document.getElementById('w4-new-target').value  = '';
+    w4NewEntry = null;
+    await w4LoadWatchlist();
+
+  } catch (e) {
+    setFeedback('w4-add-feedback', '✕ ' + e.message, 'error');
+  }
+  btn.disabled = false;
+}
+
+// ─── WIDGET 4: PRICE CHECK ───────────────────────────────────────────────────
+async function checkWishlistPrices() {
+  if (!requireConfig('w4-feedback')) return;
+  if (w4Items.length === 0) {
+    setFeedback('w4-feedback', '⚠ No items on watchlist.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('w4-btn');
+  btn.disabled = true;
+  document.getElementById('w4-feedback').innerHTML = '<span class="spinner"></span> Searching gun.deals...';
+  document.getElementById('w4-feedback').className = 'feedback visible loading';
+
+  try {
+    const itemList = w4Items.map(i => `"${i.name}" — model/UPC: ${i.model}`).join('\n');
+    const prompt = `Search gun.deals for the following firearms to find their current lowest new in-stock prices. For each item return the lowest price found, the retailer, and whether it is in stock.
+
+Return a JSON array ONLY — no markdown, no preamble:
+[{"model":"KN9069B-FSA","name":"Springfield Kuna","price":1049.99,"retailer":"Kygunco","in_stock":true},...]
+
+Use the model/UPC as the "model" field exactly as given. Items:
+${itemList}`;
+
+    const raw  = await fetchWithClaude(prompt);
+    let results = [];
+    try {
+      const m = raw.match(/\[[\s\S]*\]/);
+      if (m) results = JSON.parse(m[0]);
+    } catch (_) {}
+
+    if (results.length === 0) {
+      setFeedback('w4-feedback', '⚠ No structured results returned.\n\n' + raw, '');
+      btn.disabled = false;
+      return;
+    }
+
+    // Update each item in Notion and locally
+    const today = todayIso();
+    for (const item of w4Items) {
+      const match = results.find(r =>
+        r.model === item.model ||
+        (r.name || '').toLowerCase().includes(item.name.toLowerCase().split(' ')[0])
+      );
+      if (match && match.price) {
+        item.lastPrice = match.price;
+        item.lastDate  = today;
+        try {
+          await notionUpdate(item.id, {
+            'Last Checked Price': { number: match.price },
+            'Last Checked Date':  { date: { start: today } },
+          });
+        } catch (_) {}
+      }
+    }
+
+    hideFeedback('w4-feedback');
+    w4RenderWatchlist();
+
+  } catch (e) {
+    setFeedback('w4-feedback', '✕ ' + e.message, 'error');
+  }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
