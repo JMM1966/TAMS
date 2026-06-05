@@ -2580,6 +2580,52 @@ function w4CancelReview() {
   w4NewEntry = null;
 }
 
+// ─── WIDGET 4: MARKDOWN TO NOTION BLOCKS ─────────────────────────────────────
+// Converts simple markdown into Notion block objects
+function markdownToBlocks(md) {
+  const blocks = [];
+  const lines  = md.split('\n');
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+
+    // H1: # heading
+    if (/^# /.test(line)) {
+      blocks.push({ object:'block', type:'heading_1', heading_1:{ rich_text:[{ type:'text', text:{ content: line.replace(/^# /,'') } }] } });
+    }
+    // H2: ## heading
+    else if (/^## /.test(line)) {
+      blocks.push({ object:'block', type:'heading_2', heading_2:{ rich_text:[{ type:'text', text:{ content: line.replace(/^## /,'') } }] } });
+    }
+    // H3: ### heading
+    else if (/^### /.test(line)) {
+      blocks.push({ object:'block', type:'heading_3', heading_3:{ rich_text:[{ type:'text', text:{ content: line.replace(/^### /,'') } }] } });
+    }
+    // Bullet: - item or * item
+    else if (/^[-*] /.test(line)) {
+      const text = line.replace(/^[-*] /,'');
+      blocks.push({ object:'block', type:'bulleted_list_item', bulleted_list_item:{ rich_text:[{ type:'text', text:{ content: text } }] } });
+    }
+    // Empty line — skip
+    else if (line.trim() === '') {
+      // add a blank paragraph for spacing only if last block wasn't already blank
+      if (blocks.length > 0 && blocks[blocks.length-1].type !== 'paragraph') {
+        blocks.push({ object:'block', type:'paragraph', paragraph:{ rich_text:[] } });
+      }
+    }
+    // Regular paragraph — chunk at 2000 chars to respect Notion's limit
+    else {
+      const text = line.replace(/\*\*/g,''); // strip bold markers
+      const chunks = [];
+      for (let i = 0; i < text.length; i += 1900) chunks.push(text.slice(i, i+1900));
+      for (const chunk of chunks) {
+        blocks.push({ object:'block', type:'paragraph', paragraph:{ rich_text:[{ type:'text', text:{ content: chunk } }] } });
+      }
+    }
+  }
+  return blocks;
+}
+
 // ─── WIDGET 4: CONFIRM ADD ───────────────────────────────────────────────────
 async function w4ConfirmAdd() {
   if (!w4NewEntry) return;
@@ -2604,23 +2650,20 @@ async function w4ConfirmAdd() {
     // Create the page
     const page = await notionCreate(W4_DB_ID, props);
 
-    // Write the commentary as page content
+    // Write commentary as properly structured Notion blocks
     if (page?.id && w4NewEntry.commentary) {
-      await notionUpdate(page.id, {}); // ensure page exists
-      const updateUrl = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/blocks/${page.id}/children`);
-      await fetch(updateUrl, {
-        method: 'PATCH',
-        headers: notionHeaders(),
-        body: JSON.stringify({
-          children: [{
-            object: 'block',
-            type: 'paragraph',
-            paragraph: {
-              rich_text: [{ type: 'text', text: { content: w4NewEntry.commentary } }]
-            }
-          }]
-        })
-      });
+      const blocks = markdownToBlocks(w4NewEntry.commentary);
+      if (blocks.length > 0) {
+        const blockUrl = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/blocks/${page.id}/children`);
+        // Notion allows max 100 blocks per request — chunk if needed
+        for (let i = 0; i < blocks.length; i += 100) {
+          await fetch(blockUrl, {
+            method: 'PATCH',
+            headers: notionHeaders(),
+            body: JSON.stringify({ children: blocks.slice(i, i + 100) }),
+          });
+        }
+      }
     }
 
     setFeedback('w4-add-feedback',
