@@ -2314,7 +2314,8 @@ ${allBrandsForPrompt}`;
     // Step 3: parse response
     let results = [];
     try {
-      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
       if (jsonMatch) results = JSON.parse(jsonMatch[0]);
     } catch (_) {}
 
@@ -2665,12 +2666,11 @@ ${itemList}`;
 
     const raw  = await fetchWithClaude(prompt);
 
-    // DEBUG: always show raw response temporarily
-    setFeedback('w4-feedback', 'RAW RESPONSE:\n\n' + (raw || '(empty)'), '');
-
     let results = [];
     try {
-      const m = raw.match(/\[[\s\S]*\]/);
+      // Strip markdown code fences if present
+      const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+      const m = cleaned.match(/\[[\s\S]*\]/);
       if (m) results = JSON.parse(m[0]);
     } catch (_) {}
 
