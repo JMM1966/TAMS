@@ -1077,8 +1077,8 @@
       <button class="config-btn" id="w3-avg-btn" onclick="w3LoadAvgPaid()">⟳ Load Avg Paid</button>
     </div>
     <div class="widget-body">
-      <div class="section-label">Shop AmmoSeek — click to open · avg paid loads from Notion</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;" id="w3-ammo-links"></div>
+      <div class="section-label">Calibers — click to shop AmmoSeek · ⟳ loads avg paid from Notion</div>
+      <div id="w3-ammo-links" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:12px;"></div>
       <div class="feedback" id="w3-feedback"></div>
     </div>
   </div>
@@ -2054,7 +2054,7 @@ const W3_AMMOSEEK = [
   {
     id:    '22lr',
     label: '.22 LR',
-    url:   'https://ammoseek.com/ammo/22-long-rifle',
+    url:   'https://ammoseek.com/ammo/22lr',
   },
   {
     id:    '38spl',
@@ -2124,21 +2124,42 @@ function w3InitLinks() {
 function w3RenderButtons() {
   const container = document.getElementById('w3-ammo-links');
   if (!container) return;
+
+  // Build a map from W3_AMMOSEEK id → W3_CALIBERS definition for tier lists
+  const calMap = {};
+  W3_CALIBERS.forEach(c => { calMap[c.id] = c; });
+
   container.innerHTML = W3_AMMOSEEK.map(c => {
-    const avg = w3AvgMap[c.id];
-    const avgLabel = avg != null
-      ? `<span style="color:var(--text3);margin:0 8px;">|</span><span style="color:var(--accent);">avg $${avg.toFixed(3)}/rd</span>`
-      : `<span style="color:var(--text3);margin:0 8px;">|</span><span style="color:var(--text3);">avg —</span>`;
+    const avg    = w3AvgMap[c.id];
+    const avgTxt = avg != null ? `$${avg.toFixed(3)}/rd` : '—';
+    const cal    = calMap[c.id];
+    const t1     = cal ? cal.tier1.join(', ') : '';
+    const t2     = cal ? cal.tier2.join(', ') : '';
+
     return `
-      <a href="${c.url}" target="_blank" rel="noopener"
-         style="display:inline-flex;align-items:center;font-family:var(--mono);font-size:11px;
-                letter-spacing:0.06em;padding:7px 16px;border:1px solid var(--border2);
-                color:var(--text2);text-decoration:none;transition:all 0.15s;white-space:nowrap;"
-         onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'"
-         onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">
-        <span style="color:var(--text);">↗ ${escH(c.label)}</span>
-        ${avgLabel}
-      </a>`;
+      <div style="background:var(--bg3);border:1px solid var(--border);padding:12px 14px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <span style="font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:0.06em;color:var(--text);">${escH(c.label)}</span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--accent);">avg ${escH(avgTxt)}</span>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:3px;">Tier 1</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text2);line-height:1.6;">${escH(t1)}</div>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:3px;">Tier 2</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text2);line-height:1.6;">${escH(t2)}</div>
+        </div>
+        <a href="${c.url}" target="_blank" rel="noopener"
+           style="display:flex;justify-content:center;font-family:var(--mono);font-size:11px;
+                  letter-spacing:0.06em;padding:6px 0;border:1px solid var(--border2);
+                  color:var(--accent);background:var(--accent-glow);text-decoration:none;
+                  transition:all 0.15s;margin-top:2px;"
+           onmouseover="this.style.borderColor='var(--accent)'"
+           onmouseout="this.style.borderColor='var(--border2)'">
+          ↗ Shop AmmoSeek
+        </a>
+      </div>`;
   }).join('');
 }
 
@@ -2249,6 +2270,13 @@ async function w4LoadWatchlist() {
   }
 }
 
+// ─── WIDGET 4: CUSTOM PRODUCT URLS ───────────────────────────────────────────
+// For items where gun.deals isn't useful (retailer-exclusive, PSA originals, etc.)
+// Key = Model/UPC field value from Notion, Value = direct product page URL
+const W4_CUSTOM_URLS = {
+  'PSAK-47GF3-SHARK': 'https://palmettostatearmory.com/psa-ak-47-gf3-forged-rifle-with-sharkfin-voodoo.html',
+};
+
 // ─── WIDGET 4: RENDER WATCHLIST CARDS ────────────────────────────────────────
 function w4RenderWatchlist() {
   const container = document.getElementById('w4-watchlist');
@@ -2257,9 +2285,11 @@ function w4RenderWatchlist() {
     return;
   }
   container.innerHTML = w4Items.map((item, idx) => {
-    const target  = item.targetPrice ? `$${item.targetPrice.toLocaleString()}` : '—';
-    const query   = encodeURIComponent(item.model || item.name);
-    const dealUrl = `https://gun.deals/search/apachesolr_search/${query}`;
+    const target     = item.targetPrice ? `$${item.targetPrice.toLocaleString()}` : '—';
+    const customUrl  = W4_CUSTOM_URLS[item.model];
+    const query      = encodeURIComponent(item.model || item.name);
+    const dealUrl    = customUrl || `https://gun.deals/search/apachesolr_search/${query}`;
+    const dealLabel  = customUrl ? '↗ PSA Product Page' : '↗ gun.deals';
 
     return `
       <div class="w4-card">
@@ -2278,7 +2308,7 @@ function w4RenderWatchlist() {
                       transition:all 0.15s;align-self:flex-end;"
                onmouseover="this.style.borderColor='var(--accent)'"
                onmouseout="this.style.borderColor='var(--border2)'">
-              ↗ gun.deals
+              ${dealLabel}
             </a>
           </div>
         </div>
