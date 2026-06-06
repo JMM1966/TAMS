@@ -1078,7 +1078,12 @@
     </div>
     <div class="widget-body">
       <div class="section-label">Calibers — click to shop AmmoSeek · ⟳ loads avg paid from Notion</div>
-      <div id="w3-ammo-links" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:12px;"></div>
+      <div id="w3-ammo-links" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:20px;"></div>
+
+      <div class="section-label">My Usual Buys — purchased 3+ times</div>
+      <div id="w3-usual-buys" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:12px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:4px 0;">Click ⟳ Load Avg Paid to populate.</div>
+      </div>
       <div class="feedback" id="w3-feedback"></div>
     </div>
   </div>
@@ -2169,10 +2174,10 @@ async function w3LoadAvgPaid() {
 
   const btn = document.getElementById('w3-avg-btn');
   btn.disabled = true;
-  setFeedback('w3-feedback', '<span class="spinner"></span> Loading avg paid from Notion...', 'loading');
+  setFeedback('w3-feedback', '<span class="spinner"></span> Loading from Notion...', 'loading');
 
   try {
-    // Map W3_AMMOSEEK ids to W3_CALIBERS definitions for Notion queries
+    // ── Step 1: caliber avg for card headers ──────────────────────────────
     const calMap = {};
     W3_CALIBERS.forEach(c => { calMap[c.id] = c; });
 
@@ -2180,19 +2185,105 @@ async function w3LoadAvgPaid() {
       const calDef = calMap[cal.id];
       if (!calDef) continue;
       const avgByBrand = await w3FetchAvgPaid(calDef);
-      // Compute a single overall avg across all brands that have data
       const vals = Object.values(avgByBrand);
       w3AvgMap[cal.id] = vals.length > 0
         ? vals.reduce((a, b) => a + b, 0) / vals.length
         : null;
     }
-
-    hideFeedback('w3-feedback');
     w3RenderButtons();
+
+    // ── Step 2: My Usual Buys — pull all lots, group by brand|caliber|grain ─
+    setFeedback('w3-feedback', '<span class="spinner"></span> Loading usual buys...', 'loading');
+
+    const allLots = await notionQuery(
+      CFG.ammoDb,
+      null,  // no filter — all records
+      [{ property: 'Date', direction: 'descending' }]
+    );
+
+    // Group by "brand|caliber|grain" — count purchases and accumulate avg ppr
+    const groups = {};
+    for (const page of allLots.results) {
+      const pr       = page.properties;
+      const brand    = pr.Brand?.title?.[0]?.text?.content?.trim()    || '';
+      const caliber  = pr.Caliber?.rich_text?.[0]?.text?.content?.trim() || '';
+      const grain    = pr.Grain?.rich_text?.[0]?.text?.content?.trim()   || '';
+      const value    = pr.Value?.number    || 0;
+      const purchased= pr.Purchased?.number || 0;
+      if (!brand || !caliber || !purchased) continue;
+
+      const key = `${brand}|${caliber}|${grain}`;
+      if (!groups[key]) groups[key] = { brand, caliber, grain, count: 0, pprs: [] };
+      groups[key].count++;
+      if (value && purchased) groups[key].pprs.push(value / purchased);
+    }
+
+    // Keep only combos bought 3+ times
+    const usual = Object.values(groups)
+      .filter(g => g.count >= 3)
+      .map(g => {
+        const last3 = g.pprs.slice(0, 3);
+        const avg   = last3.length ? last3.reduce((a, b) => a + b, 0) / last3.length : null;
+        // Build AmmoSeek keyword URL using brand + grain as search terms
+        const kw  = encodeURIComponent([g.brand, g.grain ? g.grain + 'gr' : ''].filter(Boolean).join(' '));
+        // Find matching caliber slug from W3_AMMOSEEK
+        const calSlug = W3_AMMOSEEK.find(c => {
+          const calDef = calMap[c.id];
+          return calDef && calDef.searchTerms.some(t =>
+            g.caliber.toLowerCase().includes(t.toLowerCase().split(' ')[0].toLowerCase())
+          );
+        });
+        const url = calSlug
+          ? `${calSlug.url}&ikw=${kw}`
+          : `https://ammoseek.com/ammo?ikw=${kw}`;
+        return { ...g, avg, url };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    w3RenderUsualBuys(usual);
+    hideFeedback('w3-feedback');
+
   } catch (e) {
     setFeedback('w3-feedback', '✕ ' + e.message, 'error');
   }
   btn.disabled = false;
+}
+
+// ─── WIDGET 3: RENDER MY USUAL BUYS ──────────────────────────────────────────
+function w3RenderUsualBuys(items) {
+  const container = document.getElementById('w3-usual-buys');
+  if (!container) return;
+  if (items.length === 0) {
+    container.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:4px 0;">No combos purchased 3+ times yet.</div>';
+    return;
+  }
+  container.innerHTML = items.map(item => {
+    const avgTxt = item.avg != null ? `$${item.avg.toFixed(3)}/rd` : '—';
+    const grainLabel = item.grain ? ` · ${item.grain}` : '';
+    return `
+      <div style="background:var(--bg3);border:1px solid var(--border);padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <span style="font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:0.06em;color:var(--text);">${escH(item.brand)}</span>
+          <span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.08em;">${item.count}× purchased</span>
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text2);">${escH(item.caliber)}${escH(grainLabel)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;">Avg paid</div>
+            <div style="font-family:var(--mono);font-size:13px;color:var(--accent);">${escH(avgTxt)}</div>
+          </div>
+        </div>
+        <a href="${item.url}" target="_blank" rel="noopener"
+           style="display:flex;justify-content:center;font-family:var(--mono);font-size:11px;
+                  letter-spacing:0.06em;padding:6px 0;border:1px solid var(--border2);
+                  color:var(--accent);background:var(--accent-glow);text-decoration:none;
+                  transition:all 0.15s;"
+           onmouseover="this.style.borderColor='var(--accent)'"
+           onmouseout="this.style.borderColor='var(--border2)'">
+          ↗ Shop AmmoSeek
+        </a>
+      </div>`;
+  }).join('');
 }
 
 // ─── WIDGET 3: FETCH AVG PAID FROM NOTION ────────────────────────────────────
@@ -2274,7 +2365,7 @@ async function w4LoadWatchlist() {
 // For items where gun.deals isn't useful (retailer-exclusive, PSA originals, etc.)
 // Key = Model/UPC field value from Notion, Value = direct product page URL
 const W4_CUSTOM_URLS = {
-  'PSAK-47GF3-SHARK': 'https://palmettostatearmory.com/psa-ak-47-gf3-forged-rifle-with-sharkfin-voodoo.html',
+  '51655131395': 'https://palmettostatearmory.com/psa-ak-47-gf3-forged-rifle-with-sharkfin-voodoo.html',
 };
 
 // ─── WIDGET 4: RENDER WATCHLIST CARDS ────────────────────────────────────────
