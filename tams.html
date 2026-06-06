@@ -1074,16 +1074,12 @@
         <span class="widget-num">W-03</span>
         <span class="widget-title">Ammo Price Monitor</span>
       </div>
-      <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;">Tier 1 &amp; 2 brands only · in-stock · vs. your avg paid</span>
+      <button class="config-btn" id="w3-avg-btn" onclick="w3LoadAvgPaid()">⟳ Load Avg Paid</button>
     </div>
     <div class="widget-body">
-      <div class="section-label">Shop AmmoSeek — Tier 1 &amp; 2 filtered · or All Brands</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;" id="w3-ammo-links"></div>
-
-      <div class="section-label">Your Avg Paid — from Notion</div>
-      <button class="btn-secondary" id="w3-avg-btn" onclick="w3LoadAvgPaid()" style="margin-bottom:12px;width:auto;padding:8px 24px;">Load Avg Paid Prices</button>
+      <div class="section-label">Shop AmmoSeek — click to open · avg paid loads from Notion</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;" id="w3-ammo-links"></div>
       <div class="feedback" id="w3-feedback"></div>
-      <div id="w3-results" style="margin-top:8px;"></div>
     </div>
   </div>
 
@@ -1142,10 +1138,6 @@
         </div>
       </div>
 
-      <!-- PRICE CHECK -->
-      <div class="section-label">Check Prices on gun.deals</div>
-      <div id="w4-gundeals-links" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
-      <div class="feedback" id="w4-feedback"></div>
     </div>
   </div>
 
@@ -2045,35 +2037,34 @@ async function logPurchase() {
 
 // ─── WIDGET 3: AMMOSEEK LINKS + AVG PAID ─────────────────────────────────────
 
-// AmmoSeek URLs per caliber — two links each:
-//   allUrl  = unfiltered (all brands, always works)
-//   tierUrl = keyword-filtered to Tier 1+2 brands using AmmoSeek's ?inc= parameter
-//             (OR search across manufacturer name field — best available multi-brand filter)
+// AmmoSeek URLs per caliber — one button each, grain-filtered only.
+// Casing and brand filters are not supported via URL (AmmoSeek applies them client-side).
+// Each button shows avg paid from Notion once w3LoadAvgPaid() is called.
 const W3_AMMOSEEK = [
   {
+    id:    '9mm',
     label: '9mm 115gr',
-    allUrl:  'https://ammoseek.com/ammo/9mm-luger?bullet_weight_min=115&bullet_weight_max=115&casing=brass,aluminum',
-    tierUrl: 'https://ammoseek.com/ammo/9mm-luger?bullet_weight_min=115&bullet_weight_max=115&casing=brass,aluminum&inc=PMC+Fiocchi+Sellier+Aguila+Magtech+Blazer+PPU+Browning+Hornady+Frontier',
+    url:   'https://ammoseek.com/ammo/9mm-luger?bullet_weight_min=115&bullet_weight_max=115',
   },
   {
+    id:    '556',
     label: '5.56 / .223 55gr',
-    allUrl:  'https://ammoseek.com/ammo/5.56x45mm-nato?bullet_weight_min=55&bullet_weight_max=55&casing=brass,aluminum',
-    tierUrl: 'https://ammoseek.com/ammo/5.56x45mm-nato?bullet_weight_min=55&bullet_weight_max=55&casing=brass,aluminum&inc=IMI+PMC+AAC+Fiocchi+Hornady+Frontier+Sellier+PPU',
+    url:   'https://ammoseek.com/ammo/5.56x45mm-nato?bullet_weight_min=55&bullet_weight_max=55',
   },
   {
+    id:    '22lr',
     label: '.22 LR',
-    allUrl:  'https://ammoseek.com/ammo/22-long-rifle?casing=brass,aluminum',
-    tierUrl: 'https://ammoseek.com/ammo/22-long-rifle?casing=brass,aluminum&inc=CCI+Federal+Aguila+Blazer+Winchester+Remington',
+    url:   'https://ammoseek.com/ammo/22-long-rifle',
   },
   {
+    id:    '38spl',
     label: '.38 Special 158gr',
-    allUrl:  'https://ammoseek.com/ammo/38-special?bullet_weight_min=158&bullet_weight_max=158&casing=brass,aluminum',
-    tierUrl: 'https://ammoseek.com/ammo/38-special?bullet_weight_min=158&bullet_weight_max=158&casing=brass,aluminum&inc=Sellier+Magtech+Fiocchi+PMC+Blazer+Federal+Winchester',
+    url:   'https://ammoseek.com/ammo/38-special?bullet_weight_min=158&bullet_weight_max=158',
   },
   {
+    id:    '357mag',
     label: '.357 Magnum 158gr',
-    allUrl:  'https://ammoseek.com/ammo/357-magnum?bullet_weight_min=158&bullet_weight_max=158&casing=brass,aluminum',
-    tierUrl: 'https://ammoseek.com/ammo/357-magnum?bullet_weight_min=158&bullet_weight_max=158&casing=brass,aluminum&inc=Sellier+Magtech+Fiocchi+Blazer+Winchester+Federal',
+    url:   'https://ammoseek.com/ammo/357-magnum?bullet_weight_min=158&bullet_weight_max=158',
   },
 ];
 
@@ -2120,35 +2111,67 @@ const W3_CALIBERS = [
   },
 ];
 
-// Render AmmoSeek link buttons — two per caliber
+// Render one AmmoSeek button per caliber, with avg paid shown inline.
+// avgMap is keyed by caliber id → overall avg ppr across all brands (or null if not loaded).
+let w3AvgMap = {}; // caliber id → avg ppr (weighted mean across brands with data)
+
 function w3InitLinks() {
   const container = document.getElementById('w3-ammo-links');
   if (!container) return;
+  w3RenderButtons();
+}
 
-  const linkStyle = `
-    display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:0.06em;
-    padding:5px 14px;border:1px solid var(--border2);text-decoration:none;transition:all 0.15s;
-  `;
+function w3RenderButtons() {
+  const container = document.getElementById('w3-ammo-links');
+  if (!container) return;
+  container.innerHTML = W3_AMMOSEEK.map(c => {
+    const avg = w3AvgMap[c.id];
+    const avgLabel = avg != null
+      ? `<span style="color:var(--text3);margin:0 8px;">|</span><span style="color:var(--accent);">avg $${avg.toFixed(3)}/rd</span>`
+      : `<span style="color:var(--text3);margin:0 8px;">|</span><span style="color:var(--text3);">avg —</span>`;
+    return `
+      <a href="${c.url}" target="_blank" rel="noopener"
+         style="display:inline-flex;align-items:center;font-family:var(--mono);font-size:11px;
+                letter-spacing:0.06em;padding:7px 16px;border:1px solid var(--border2);
+                color:var(--text2);text-decoration:none;transition:all 0.15s;white-space:nowrap;"
+         onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'"
+         onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">
+        <span style="color:var(--text);">↗ ${escH(c.label)}</span>
+        ${avgLabel}
+      </a>`;
+  }).join('');
+}
 
-  container.innerHTML = W3_AMMOSEEK.map(c => `
-    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
-      <span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;">${escH(c.label)}</span>
-      <div style="display:flex;gap:6px;">
-        <a href="${c.tierUrl}" target="_blank" rel="noopener"
-           style="${linkStyle}color:var(--accent);background:var(--accent-glow);"
-           onmouseover="this.style.borderColor='var(--accent)'"
-           onmouseout="this.style.borderColor='var(--border2)'">
-          ↗ Tier 1 &amp; 2 Brands
-        </a>
-        <a href="${c.allUrl}" target="_blank" rel="noopener"
-           style="${linkStyle}color:var(--text2);background:none;"
-           onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'"
-           onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">
-          ↗ All Brands
-        </a>
-      </div>
-    </div>
-  `).join('');
+// Load avg paid from Notion for all calibers and update button labels
+async function w3LoadAvgPaid() {
+  if (!requireConfig('w3-feedback')) return;
+
+  const btn = document.getElementById('w3-avg-btn');
+  btn.disabled = true;
+  setFeedback('w3-feedback', '<span class="spinner"></span> Loading avg paid from Notion...', 'loading');
+
+  try {
+    // Map W3_AMMOSEEK ids to W3_CALIBERS definitions for Notion queries
+    const calMap = {};
+    W3_CALIBERS.forEach(c => { calMap[c.id] = c; });
+
+    for (const cal of W3_AMMOSEEK) {
+      const calDef = calMap[cal.id];
+      if (!calDef) continue;
+      const avgByBrand = await w3FetchAvgPaid(calDef);
+      // Compute a single overall avg across all brands that have data
+      const vals = Object.values(avgByBrand);
+      w3AvgMap[cal.id] = vals.length > 0
+        ? vals.reduce((a, b) => a + b, 0) / vals.length
+        : null;
+    }
+
+    hideFeedback('w3-feedback');
+    w3RenderButtons();
+  } catch (e) {
+    setFeedback('w3-feedback', '✕ ' + e.message, 'error');
+  }
+  btn.disabled = false;
 }
 
 // ─── WIDGET 3: FETCH AVG PAID FROM NOTION ────────────────────────────────────
@@ -2193,78 +2216,6 @@ async function w3FetchAvgPaid(calDef) {
   return avgByBrand;
 }
 
-// ─── WIDGET 3: LOAD & RENDER AVG PAID ────────────────────────────────────────
-async function w3LoadAvgPaid() {
-  if (!requireConfig('w3-feedback')) return;
-
-  const btn = document.getElementById('w3-avg-btn');
-  btn.disabled = true;
-  document.getElementById('w3-feedback').innerHTML = '<span class="spinner"></span> Loading avg paid from Notion...';
-  document.getElementById('w3-feedback').className = 'feedback visible loading';
-  document.getElementById('w3-results').innerHTML = '';
-
-  try {
-    const container = document.getElementById('w3-results');
-    let html = '';
-
-    for (const cal of W3_CALIBERS) {
-      const avg = await w3FetchAvgPaid(cal);
-      const allBrands = [
-        { brands: cal.tier1, tierNum: 1 },
-        { brands: cal.tier2, tierNum: 2 },
-      ];
-
-      // Skip caliber entirely if no avg paid data at all
-      const hasAny = [...cal.tier1, ...cal.tier2].some(b => avg[b]);
-      if (!hasAny) continue;
-
-      html += `<div class="w3-cal-block">`;
-      html += `<div class="w3-cal-heading">${escH(cal.label)} <span style="font-family:var(--mono);font-size:10px;color:var(--text3);font-weight:400;letter-spacing:0.06em;">${cal.subtypeNote}</span></div>`;
-
-      for (const { brands, tierNum } of allBrands) {
-        const tierBrandsWithData = brands.filter(b => avg[b]);
-        if (tierBrandsWithData.length === 0) continue;
-
-        html += `
-          <div style="margin-bottom:4px;">
-            <span class="w3-tier-label w3-tier-${tierNum}">Tier ${tierNum}</span>
-          </div>
-          <div style="background:var(--bg3);border:1px solid var(--border);margin-bottom:8px;">
-            <div class="w3-result-row header" style="grid-template-columns:1fr 100px 180px;">
-              <span>Brand</span>
-              <span style="text-align:right">Avg paid/rd</span>
-              <span style="text-align:right">Based on last 3 purchases</span>
-            </div>`;
-
-        for (const brand of tierBrandsWithData) {
-          const ppr = avg[brand];
-          html += `
-            <div class="w3-result-row" style="grid-template-columns:1fr 100px 180px;">
-              <span class="w3-brand">${escH(brand)}</span>
-              <span class="w3-ppr">$${ppr.toFixed(3)}</span>
-              <span style="color:var(--text3);text-align:right;font-size:10px;">historical avg</span>
-            </div>`;
-        }
-
-        html += `</div>`;
-      }
-
-      html += `</div>`;
-    }
-
-    if (!html) {
-      setFeedback('w3-feedback', '⚠ No purchase history found in Notion for any caliber. Log purchases in Widget 2 first.', '');
-    } else {
-      hideFeedback('w3-feedback');
-      container.innerHTML = html;
-    }
-
-  } catch (e) {
-    setFeedback('w3-feedback', '✕ ' + e.message, 'error');
-  }
-  btn.disabled = false;
-}
-
 // ─── WIDGET 4: CONSTANTS ──────────────────────────────────────────────────────
 const W4_DB_ID  = '31a48b32-cb0b-80d3-ade1-f49144939c3d'; // Wishlist database page ID
 let w4Items     = []; // active Watching items loaded from Notion
@@ -2286,18 +2237,13 @@ async function w4LoadWatchlist() {
     w4Items = data.results.map(p => {
       const pr = p.properties;
       return {
-        id:           p.id,
-        name:         pr.Name?.title?.[0]?.text?.content || 'Unknown',
-        model:        pr['Model/UPC']?.rich_text?.[0]?.text?.content || '',
-        targetPrice:  pr['Target Price']?.number || null,
-        lastPrice:    pr['Last Checked Price']?.number || null,
-        lastDate:     pr['Last Checked Date']?.date?.start || null,
-        lastRetailer: '',
-        isMap:        false,
+        id:          p.id,
+        name:        pr.Name?.title?.[0]?.text?.content || 'Unknown',
+        model:       pr['Model/UPC']?.rich_text?.[0]?.text?.content || '',
+        targetPrice: pr['Target Price']?.number || null,
       };
     });
     w4RenderWatchlist();
-    w4RenderGunDealsLinks();
   } catch (e) {
     document.getElementById('w4-loading').textContent = '✕ Failed to load: ' + e.message;
   }
@@ -2311,40 +2257,29 @@ function w4RenderWatchlist() {
     return;
   }
   container.innerHTML = w4Items.map((item, idx) => {
-    const target    = item.targetPrice ? `$${item.targetPrice.toLocaleString()}` : '—';
-    const lastPrice = item.lastPrice   ? `$${item.lastPrice.toLocaleString()}`   : '—';
-    const lastDate  = item.lastDate    || '—';
-
-    let deltaHtml = '';
-    let badgeHtml = '<span class="w4-status-badge w4-badge-watch">WATCHING</span>';
-    if (item.lastPrice && item.targetPrice) {
-      const diff = item.lastPrice - item.targetPrice;
-      if (diff <= 0) {
-        deltaHtml = `<span class="w4-price-delta-good">↓ $${Math.abs(diff).toLocaleString()} under target</span>`;
-        badgeHtml = '<span class="w4-status-badge w4-badge-under">✓ UNDER TARGET</span>';
-      } else {
-        deltaHtml = `<span class="w4-price-delta-bad">↑ $${diff.toLocaleString()} over target</span>`;
-        badgeHtml = '<span class="w4-status-badge w4-badge-over">OVER TARGET</span>';
-      }
-    }
+    const target  = item.targetPrice ? `$${item.targetPrice.toLocaleString()}` : '—';
+    const query   = encodeURIComponent(item.model || item.name);
+    const dealUrl = `https://gun.deals/search/apachesolr_search/${query}`;
 
     return `
       <div class="w4-card">
         <div>
           <div class="w4-card-name">${escH(item.name)}</div>
-          <div class="w4-card-meta">${escH(item.model)} · checked ${escH(item.lastDate || '—')} · ${escH(item.lastRetailer || 'Unknown retailer')}</div>
-          ${badgeHtml}
-          ${item.isMap ? '<span class="w4-status-badge" style="background:rgba(224,82,82,0.12);color:var(--red);margin-left:6px;">MAP PRICE — CONTACT DEALER</span>' : ''}
-          <div class="w4-card-prices">
+          <div class="w4-card-meta">${escH(item.model)}</div>
+          <div class="w4-card-prices" style="margin-top:8px;">
             <div class="w4-price-block">
-              <span class="w4-price-label">Target</span>
+              <span class="w4-price-label">Target Price</span>
               <span class="w4-price-val">${target}</span>
             </div>
-            <div class="w4-price-block">
-              <span class="w4-price-label">Last Price</span>
-              <span class="w4-price-val">${lastPrice}</span>
-            </div>
-            <div>${deltaHtml}</div>
+            <a href="${dealUrl}" target="_blank" rel="noopener"
+               style="display:inline-flex;align-items:center;font-family:var(--mono);font-size:11px;
+                      letter-spacing:0.06em;padding:5px 14px;border:1px solid var(--border2);
+                      color:var(--accent);background:var(--accent-glow);text-decoration:none;
+                      transition:all 0.15s;align-self:flex-end;"
+               onmouseover="this.style.borderColor='var(--accent)'"
+               onmouseout="this.style.borderColor='var(--border2)'">
+              ↗ gun.deals
+            </a>
           </div>
         </div>
         <div class="w4-card-actions">
@@ -2417,29 +2352,7 @@ async function w4AddItem() {
   }
 }
 
-// ─── WIDGET 4: GUN.DEALS LINKS ───────────────────────────────────────────────
-// Renders one link button per watchlist item — opens gun.deals search for that model
-function w4RenderGunDealsLinks() {
-  const container = document.getElementById('w4-gundeals-links');
-  if (!container) return;
-  if (w4Items.length === 0) {
-    container.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--text3);">No items on watchlist.</span>';
-    return;
-  }
-  container.innerHTML = w4Items.map(item => {
-    const query = encodeURIComponent(item.model || item.name);
-    const url   = `https://gun.deals/search/apachesolr_search/${query}`;
-    return `
-      <a href="${url}" target="_blank" rel="noopener"
-         style="display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:0.06em;
-                padding:6px 16px;border:1px solid var(--border2);color:var(--accent);
-                background:var(--accent-glow);text-decoration:none;transition:all 0.15s;"
-         onmouseover="this.style.borderColor='var(--accent2)'"
-         onmouseout="this.style.borderColor='var(--border2)'">
-        ↗ ${escH(item.name)}
-      </a>`;
-  }).join('');
-}
+
 </script>
 </body>
 </html>
