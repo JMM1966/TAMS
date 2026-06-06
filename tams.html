@@ -1077,11 +1077,13 @@
       <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;">Tier 1 &amp; 2 brands only · in-stock · vs. your avg paid</span>
     </div>
     <div class="widget-body">
-      <div class="section-label">Calibers</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;" id="w3-cal-toggles"></div>
-      <button class="btn-primary" id="w3-btn" onclick="checkAmmoPrices()">Check Current Prices</button>
+      <div class="section-label">Shop AmmoSeek — Tier 1 &amp; 2 filtered · or All Brands</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;" id="w3-ammo-links"></div>
+
+      <div class="section-label">Your Avg Paid — from Notion</div>
+      <button class="btn-secondary" id="w3-avg-btn" onclick="w3LoadAvgPaid()" style="margin-bottom:12px;width:auto;padding:8px 24px;">Load Avg Paid Prices</button>
       <div class="feedback" id="w3-feedback"></div>
-      <div id="w3-results" style="margin-top:16px;"></div>
+      <div id="w3-results" style="margin-top:8px;"></div>
     </div>
   </div>
 
@@ -1126,19 +1128,10 @@
           </div>
         </div>
         <div style="margin-top:12px;display:flex;gap:10px;">
-          <button class="btn-primary" style="flex:1;" onclick="w4ResearchAndAdd()">Research &amp; Add to Notion</button>
+          <button class="btn-primary" style="flex:1;" onclick="w4AddItem()">Add to Notion Wishlist</button>
           <button class="btn-secondary" style="flex:0 0 100px;" onclick="w4ToggleAddPanel()">Cancel</button>
         </div>
         <div class="feedback" id="w4-add-feedback"></div>
-        <!-- REVIEW PANEL -->
-        <div id="w4-review-panel" style="display:none;margin-top:14px;border:1px solid var(--border2);padding:14px;">
-          <div class="review-title">Research Summary — Confirm Before Writing to Notion</div>
-          <div id="w4-review-content" style="font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.8;margin-bottom:12px;max-height:300px;overflow-y:auto;"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <button class="btn-secondary" onclick="w4CancelReview()">◀ Edit</button>
-            <button class="btn-primary" id="w4-confirm-btn" onclick="w4ConfirmAdd()">Confirm &amp; Save to Notion</button>
-          </div>
-        </div>
       </div>
 
       <!-- ACTIVE WATCHLIST -->
@@ -1150,7 +1143,8 @@
       </div>
 
       <!-- PRICE CHECK -->
-      <button class="btn-primary" id="w4-btn" onclick="checkWishlistPrices()">Check Current Prices</button>
+      <div class="section-label">Check Prices on gun.deals</div>
+      <div id="w4-gundeals-links" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
       <div class="feedback" id="w4-feedback"></div>
     </div>
   </div>
@@ -1310,7 +1304,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (el) el.style.display = 'none';
   });
   updateStatus();
-  w3InitToggles();
+  w3InitLinks();
   // Load live inventory from Notion, then render first row
   // If no token yet, addFirearmRow still runs (combos will show all until token saved)
   await loadInventory();
@@ -1542,9 +1536,12 @@ function populateRentalAmmoDropdown() {
 // Keyed by "brand|caliber|grain" → total remaining rounds across all lots.
 // Populated once on load (when token is present) and refreshed after each write.
 let inventoryMap = null; // null = not yet loaded; {} = loaded but empty
+let inventoryLoading = false; // guard against concurrent loads
 
 async function loadInventory() {
   if (!CFG.token) return;
+  if (inventoryLoading) return; // already in progress
+  inventoryLoading = true;
   try {
     // Pull every page from Ammo Tracker (up to 100; paginate if needed)
     const map = {};
@@ -1581,6 +1578,8 @@ async function loadInventory() {
   } catch (e) {
     console.warn('TAMS: inventory load failed', e);
     inventoryMap = {}; // fall back to showing all combos
+  } finally {
+    inventoryLoading = false;
   }
 }
 
@@ -1864,6 +1863,7 @@ async function w1Confirm() {
 
 async function w2PopulateDropdowns() {
   if (!inventoryMap) return;
+  if (!CFG.token) return; // no token — skip Notion retailer fetch entirely
 
   // Extract unique values from inventory keys ("brand|caliber|grain")
   const brands    = new Set();
@@ -2039,118 +2039,49 @@ async function logPurchase() {
   }
 }
 
-// ─── PRICE MONITOR: Claude-powered web lookup ─────────────────────────────────
-async function fetchWithClaude(prompt) {
-  const key = CFG.anthropic;
-  if (!key) throw new Error('Anthropic API key not configured. Add it in ⚙ Config.');
+// ─── NO ANTHROPIC API CALLS IN W3/W4 ────────────────────────────────────────
+// W3 uses AmmoSeek direct links. W4 uses gun.deals direct links.
+// W4 Add creates a Notion record only — no AI research call.
 
-  const baseHeaders = {
-    'Content-Type': 'application/json',
-    'x-api-key': key,
-    'anthropic-version': '2023-06-01',
-    'anthropic-dangerous-direct-browser-access': 'true',
-  };
+// ─── WIDGET 3: AMMOSEEK LINKS + AVG PAID ─────────────────────────────────────
 
-  const baseBody = {
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1500,
-    tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-  };
-
-  // Turn 1: send the prompt
-  let messages = [{ role: 'user', content: prompt }];
-  let r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: baseHeaders,
-    body: JSON.stringify({ ...baseBody, messages }),
-  });
-
-  if (!r.ok) {
-    const text = await r.text().catch(() => '');
-    let msg = `Anthropic API error ${r.status}`;
-    try { msg = JSON.parse(text).error?.message || msg; } catch (_) { if (text) msg += ': ' + text.substring(0, 300); }
-    throw new Error(msg);
-  }
-
-  let data = await r.json();
-
-  // Agentic loop: keep going while Claude wants to use tools
-  let iterations = 0;
-  while (data.stop_reason === 'tool_use' && iterations < 3) {
-    iterations++;
-    const assistantContent = data.content || [];
-
-    // Build tool results for all tool_use blocks
-    const toolResults = assistantContent
-      .filter(b => b.type === 'tool_use')
-      .map(b => ({
-        type: 'tool_result',
-        tool_use_id: b.id,
-        content: 'Search completed. Please provide your findings.',
-      }));
-
-    if (toolResults.length === 0) break;
-
-    // Turn N+1: send tool results back
-    messages = [
-      { role: 'user', content: prompt },
-      { role: 'assistant', content: assistantContent },
-      { role: 'user', content: toolResults },
-    ];
-
-    r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: baseHeaders,
-      body: JSON.stringify({ ...baseBody, messages }),
-    });
-
-    if (!r.ok) {
-      const text = await r.text().catch(() => '');
-      let msg = `Anthropic API error ${r.status}`;
-      try { msg = JSON.parse(text).error?.message || msg; } catch (_) { if (text) msg += ': ' + text.substring(0, 300); }
-      throw new Error(msg);
-    }
-
-    data = await r.json();
-  }
-
-  // Extract final text response
-  const text = (data.content || [])
-    .filter(b => b.type === 'text')
-    .map(b => b.text)
-    .join('\n');
-
-  return text || '(no text response)';
-}
-
-function renderPriceCards(containerId, items) {
-  const c = document.getElementById(containerId);
-  c.innerHTML = items.map(item => {
-    const badge = item.badge ? `<span class="price-badge ${item.badgeType}">${item.badge}</span>` : '';
-    return `
-      <div class="price-card">
-        <div class="price-name">
-          ${item.name}
-          ${item.sub ? `<small>${item.sub}</small>` : ''}
-        </div>
-        ${badge}
-        <div class="price-value">
-          ${item.price}
-          ${item.unit ? `<small>${item.unit}</small>` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-// ─── WIDGET 3: CONSTANTS ──────────────────────────────────────────────────────
+// AmmoSeek URLs per caliber — two links each:
+//   allUrl  = unfiltered (all brands, always works)
+//   tierUrl = keyword-filtered to Tier 1+2 brands using AmmoSeek's ?inc= parameter
+//             (OR search across manufacturer name field — best available multi-brand filter)
+const W3_AMMOSEEK = [
+  {
+    label: '9mm 115gr',
+    allUrl:  'https://ammoseek.com/ammo/9mm-luger?bullet_weight_min=115&bullet_weight_max=115',
+    tierUrl: 'https://ammoseek.com/ammo/9mm-luger?bullet_weight_min=115&bullet_weight_max=115&inc=PMC+Fiocchi+Sellier+Aguila+Magtech+Blazer+PPU+Browning+Hornady+Frontier',
+  },
+  {
+    label: '5.56 / .223 55gr',
+    allUrl:  'https://ammoseek.com/ammo/5.56x45mm-nato?bullet_weight_min=55&bullet_weight_max=55',
+    tierUrl: 'https://ammoseek.com/ammo/5.56x45mm-nato?bullet_weight_min=55&bullet_weight_max=55&inc=IMI+PMC+AAC+Fiocchi+Hornady+Frontier+Sellier+PPU',
+  },
+  {
+    label: '.22 LR',
+    allUrl:  'https://ammoseek.com/ammo/22-long-rifle',
+    tierUrl: 'https://ammoseek.com/ammo/22-long-rifle?inc=CCI+Federal+Aguila+Blazer+Winchester+Remington',
+  },
+  {
+    label: '.38 Special 158gr',
+    allUrl:  'https://ammoseek.com/ammo/38-special?bullet_weight_min=158&bullet_weight_max=158',
+    tierUrl: 'https://ammoseek.com/ammo/38-special?bullet_weight_min=158&bullet_weight_max=158&inc=Sellier+Magtech+Fiocchi+PMC+Blazer+Federal+Winchester',
+  },
+  {
+    label: '.357 Magnum 158gr',
+    allUrl:  'https://ammoseek.com/ammo/357-magnum?bullet_weight_min=158&bullet_weight_max=158',
+    tierUrl: 'https://ammoseek.com/ammo/357-magnum?bullet_weight_min=158&bullet_weight_max=158&inc=Sellier+Magtech+Fiocchi+Blazer+Winchester+Federal',
+  },
+];
 
 const W3_CALIBERS = [
   {
     id: '9mm',
     label: '9mm',
     searchTerms: ['9mm', '9x19', '9mm Luger'],
-    subtype: 'FMJ 115gr',
     subtypeNote: 'FMJ · 115gr',
     tier1: ['PMC', 'Fiocchi', 'Sellier & Bellot', 'Aguila'],
     tier2: ['Magtech', 'Blazer Brass', 'Blazer', 'PPU', 'Prvi Partizan', 'Federal American Eagle', 'Federal AE', 'Browning', 'Hornady Frontier', 'Frontier'],
@@ -2159,7 +2090,6 @@ const W3_CALIBERS = [
     id: '556',
     label: '5.56 / .223',
     searchTerms: ['5.56 NATO', '.223 Remington', '5.56x45'],
-    subtype: 'FMJ or FMJBT 55gr',
     subtypeNote: 'FMJ · FMJBT · 55gr',
     tier1: ['IMI', 'PMC', 'AAC', 'Fiocchi'],
     tier2: ['Hornady Frontier', 'Frontier', 'Sellier & Bellot', 'PPU', 'Prvi Partizan'],
@@ -2168,7 +2098,6 @@ const W3_CALIBERS = [
     id: '22lr',
     label: '.22 LR',
     searchTerms: ['.22 LR', '.22 Long Rifle'],
-    subtype: '36gr HP or 40gr LRN',
     subtypeNote: '36gr HP · 40gr LRN',
     tier1: ['CCI', 'Federal AutoMatch', 'Aguila'],
     tier2: ['Blazer', 'Winchester M-22', 'Federal Champion', 'Remington Golden Bullet'],
@@ -2177,7 +2106,6 @@ const W3_CALIBERS = [
     id: '38spl',
     label: '.38 Special',
     searchTerms: ['.38 Special', '.38 Spl'],
-    subtype: 'LRN or FP 158gr — NO pointed/JHP (tubular magazine)',
     subtypeNote: 'LRN · FP · 158gr',
     tier1: ['Sellier & Bellot', 'Magtech', 'Fiocchi'],
     tier2: ['PMC', 'Blazer Brass', 'Blazer', 'Federal American Eagle', 'Federal AE', 'Winchester'],
@@ -2186,43 +2114,48 @@ const W3_CALIBERS = [
     id: '357mag',
     label: '.357 Magnum',
     searchTerms: ['.357 Magnum', '.357 Mag'],
-    subtype: 'LRN or FP 158gr — NO pointed/JHP (tubular magazine)',
     subtypeNote: 'LRN · FP · 158gr',
     tier1: ['Sellier & Bellot', 'Magtech', 'Fiocchi'],
     tier2: ['Blazer Brass', 'Blazer', 'Winchester', 'Federal American Eagle', 'Federal AE'],
   },
 ];
 
-// ─── WIDGET 3: INIT TOGGLES ───────────────────────────────────────────────────
-function w3InitToggles() {
-  const container = document.getElementById('w3-cal-toggles');
+// Render AmmoSeek link buttons — two per caliber
+function w3InitLinks() {
+  const container = document.getElementById('w3-ammo-links');
   if (!container) return;
-  container.innerHTML = W3_CALIBERS.map(c => `
-    <button class="cal-toggle active" data-cal="${c.id}" onclick="w3ToggleCal('${c.id}', this)">
-      ${c.label}
-    </button>
+
+  const linkStyle = `
+    display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:0.06em;
+    padding:5px 14px;border:1px solid var(--border2);text-decoration:none;transition:all 0.15s;
+  `;
+
+  container.innerHTML = W3_AMMOSEEK.map(c => `
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
+      <span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;">${escH(c.label)}</span>
+      <div style="display:flex;gap:6px;">
+        <a href="${c.tierUrl}" target="_blank" rel="noopener"
+           style="${linkStyle}color:var(--accent);background:var(--accent-glow);"
+           onmouseover="this.style.borderColor='var(--accent)'"
+           onmouseout="this.style.borderColor='var(--border2)'">
+          ↗ Tier 1 &amp; 2 Brands
+        </a>
+        <a href="${c.allUrl}" target="_blank" rel="noopener"
+           style="${linkStyle}color:var(--text2);background:none;"
+           onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'"
+           onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">
+          ↗ All Brands
+        </a>
+      </div>
+    </div>
   `).join('');
 }
 
-function w3ToggleCal(id, btn) {
-  btn.classList.toggle('active');
-}
-
-function w3SelectedCalibers() {
-  return W3_CALIBERS.filter(c => {
-    const btn = document.querySelector(`.cal-toggle[data-cal="${c.id}"]`);
-    return btn && btn.classList.contains('active');
-  });
-}
-
 // ─── WIDGET 3: FETCH AVG PAID FROM NOTION ────────────────────────────────────
-// For a given caliber's search terms, query Ammo Tracker and compute
-// average price-per-round across the last 3 purchases per brand
 async function w3FetchAvgPaid(calDef) {
   const avgByBrand = {};
   const allBrands = [...calDef.tier1, ...calDef.tier2];
 
-  // Query all lots for this caliber's search terms
   const calFilters = calDef.searchTerms.map(t => ({
     property: 'Caliber', rich_text: { contains: t.split(' ')[0] }
   }));
@@ -2233,7 +2166,6 @@ async function w3FetchAvgPaid(calDef) {
       [{ property: 'Date', direction: 'descending' }]
     );
 
-    // Group lots by brand (fuzzy match against our brand list)
     const byBrand = {};
     for (const page of data.results) {
       const pr        = page.properties;
@@ -2243,7 +2175,6 @@ async function w3FetchAvgPaid(calDef) {
       if (!value || !purchased) continue;
       const ppr = value / purchased;
 
-      // Match lot name against known brands
       const matchedBrand = allBrands.find(b =>
         lotName.toLowerCase().includes(b.toLowerCase().split(' ')[0])
       );
@@ -2253,7 +2184,6 @@ async function w3FetchAvgPaid(calDef) {
       byBrand[matchedBrand].push(ppr);
     }
 
-    // Average the last 3 per brand
     for (const [brand, pprs] of Object.entries(byBrand)) {
       const last3 = pprs.slice(0, 3);
       avgByBrand[brand] = last3.reduce((a, b) => a + b, 0) / last3.length;
@@ -2263,81 +2193,71 @@ async function w3FetchAvgPaid(calDef) {
   return avgByBrand;
 }
 
-// ─── WIDGET 3: MAIN CHECK ────────────────────────────────────────────────────
-async function checkAmmoPrices() {
+// ─── WIDGET 3: LOAD & RENDER AVG PAID ────────────────────────────────────────
+async function w3LoadAvgPaid() {
   if (!requireConfig('w3-feedback')) return;
 
-  const selected = w3SelectedCalibers();
-  if (selected.length === 0) {
-    setFeedback('w3-feedback', '⚠ Select at least one caliber.', 'error');
-    return;
-  }
-
-  const btn = document.getElementById('w3-btn');
+  const btn = document.getElementById('w3-avg-btn');
   btn.disabled = true;
-  document.getElementById('w3-results').innerHTML = '';
-  document.getElementById('w3-feedback').innerHTML = '<span class="spinner"></span> Fetching your avg paid prices from Notion...';
+  document.getElementById('w3-feedback').innerHTML = '<span class="spinner"></span> Loading avg paid from Notion...';
   document.getElementById('w3-feedback').className = 'feedback visible loading';
+  document.getElementById('w3-results').innerHTML = '';
 
   try {
-    // Step 1: fetch avg paid per brand from Notion for each selected caliber
-    const avgPaidMap = {};
-    for (const cal of selected) {
-      document.getElementById('w3-feedback').innerHTML =
-        `<span class="spinner"></span> Loading avg paid — ${cal.label}...`;
-      avgPaidMap[cal.id] = await w3FetchAvgPaid(cal);
-    }
+    const container = document.getElementById('w3-results');
+    let html = '';
 
-    // Step 2: build prompt for Claude with web search
-    document.getElementById('w3-feedback').innerHTML =
-      '<span class="spinner"></span> Searching for current prices...';
+    for (const cal of W3_CALIBERS) {
+      const avg = await w3FetchAvgPaid(cal);
+      const allBrands = [
+        { brands: cal.tier1, tierNum: 1 },
+        { brands: cal.tier2, tierNum: 2 },
+      ];
 
-    const allBrandsForPrompt = selected.map(cal => {
-      const brands = [...cal.tier1, ...cal.tier2].join(', ');
-      return `${cal.label} — ${cal.subtype} (search terms: ${cal.searchTerms.join(' or ')}): brands to check — ${brands}`;
-    }).join('\n');
+      // Skip caliber entirely if no avg paid data at all
+      const hasAny = [...cal.tier1, ...cal.tier2].some(b => avg[b]);
+      if (!hasAny) continue;
 
-    const prompt = `Search AmmoSeek.com, BulkCheapAmmo.com, LuckyGunner.com, and BulkAmmo.com for current IN-STOCK ammunition prices. For each brand/caliber combination found in stock, return a SEPARATE JSON entry for each retailer — do NOT combine multiple retailers or use "Various". 
+      html += `<div class="w3-cal-block">`;
+      html += `<div class="w3-cal-heading">${escH(cal.label)} <span style="font-family:var(--mono);font-size:10px;color:var(--text3);font-weight:400;letter-spacing:0.06em;">${cal.subtypeNote}</span></div>`;
 
-IMPORTANT: For .38 Special and .357 Magnum, return ONLY flat-nose (FP) or round-nose (LRN/RN) profiles. Do NOT include JHP, JSP, or pointed profiles — these are for a lever-action rifle with a tubular magazine.
+      for (const { brands, tierNum } of allBrands) {
+        const tierBrandsWithData = brands.filter(b => avg[b]);
+        if (tierBrandsWithData.length === 0) continue;
 
-You MUST respond with a JSON array ONLY. Start your response with [ and end with ]. No narrative, no caveats, no explanations before or after the JSON. If you cannot find a price for a brand simply omit it from the array.
+        html += `
+          <div style="margin-bottom:4px;">
+            <span class="w3-tier-label w3-tier-${tierNum}">Tier ${tierNum}</span>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);margin-bottom:8px;">
+            <div class="w3-result-row header" style="grid-template-columns:1fr 100px 180px;">
+              <span>Brand</span>
+              <span style="text-align:right">Avg paid/rd</span>
+              <span style="text-align:right">Based on last 3 purchases</span>
+            </div>`;
 
-[{"caliber_id":"9mm","brand":"PMC","ppr":0.19,"retailer":"Lucky Gunner","in_stock":true},...]
+        for (const brand of tierBrandsWithData) {
+          const ppr = avg[brand];
+          html += `
+            <div class="w3-result-row" style="grid-template-columns:1fr 100px 180px;">
+              <span class="w3-brand">${escH(brand)}</span>
+              <span class="w3-ppr">$${ppr.toFixed(3)}</span>
+              <span style="color:var(--text3);text-align:right;font-size:10px;">historical avg</span>
+            </div>`;
+        }
 
-caliber_id values: 9mm, 556, 22lr, 38spl, 357mag.
-Only return brands from the lists below. Omit brands with no findable in-stock price.
-
-${allBrandsForPrompt}`;
-
-    const raw = await fetchWithClaude(prompt);
-
-    // Step 3: parse response
-    let results = [];
-    try {
-      const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
-      // Find all [...] candidates and try each, taking the first that parses as an array
-      const matches = [...cleaned.matchAll(/\[[\s\S]*?\]/g)];
-      // Also try the greedy match (largest block)
-      const greedyMatch = cleaned.match(/\[[\s\S]*\]/);
-      const candidates = greedyMatch ? [greedyMatch[0], ...matches.map(m => m[0])] : matches.map(m => m[0]);
-      for (const candidate of candidates) {
-        try {
-          const parsed = JSON.parse(candidate);
-          if (Array.isArray(parsed) && parsed.length > 0) { results = parsed; break; }
-        } catch (_) {}
+        html += `</div>`;
       }
-    } catch (_) {}
 
-    if (results.length === 0) {
-      setFeedback('w3-feedback', '⚠ No structured results returned. Raw response:\n\n' + raw, '');
-      btn.disabled = false;
-      return;
+      html += `</div>`;
     }
 
-    // Step 4: render
-    hideFeedback('w3-feedback');
-    w3RenderResults(selected, results, avgPaidMap);
+    if (!html) {
+      setFeedback('w3-feedback', '⚠ No purchase history found in Notion for any caliber. Log purchases in Widget 2 first.', '');
+    } else {
+      hideFeedback('w3-feedback');
+      container.innerHTML = html;
+    }
 
   } catch (e) {
     setFeedback('w3-feedback', '✕ ' + e.message, 'error');
@@ -2345,103 +2265,9 @@ ${allBrandsForPrompt}`;
   btn.disabled = false;
 }
 
-// ─── WIDGET 3: RENDER ─────────────────────────────────────────────────────────
-function w3RenderResults(selected, results, avgPaidMap) {
-  const container = document.getElementById('w3-results');
-  let html = '';
-
-  for (const cal of selected) {
-    // All results for this caliber regardless of in_stock — we'll show all brands
-    const calResults = results.filter(r => r.caliber_id === cal.id);
-    const avg = avgPaidMap[cal.id] || {};
-
-    html += `<div class="w3-cal-block">`;
-    html += `<div class="w3-cal-heading">${cal.label} <span style="font-family:var(--mono);font-size:10px;color:var(--text3);font-weight:400;letter-spacing:0.06em;">${cal.subtypeNote}</span></div>`;
-
-    for (const tierNum of [1, 2]) {
-      const tierBrands = tierNum === 1 ? cal.tier1 : cal.tier2;
-
-      html += `
-        <div style="margin-bottom:4px;">
-          <span class="w3-tier-label w3-tier-${tierNum}">Tier ${tierNum}</span>
-        </div>
-        <div style="background:var(--bg3);border:1px solid var(--border);margin-bottom:8px;">
-          <div class="w3-result-row header">
-            <span>Brand</span>
-            <span style="text-align:right">$/rd</span>
-            <span style="text-align:right">Avg paid</span>
-            <span style="text-align:right">vs. avg</span>
-            <span style="text-align:right">Retailer</span>
-          </div>`;
-
-      for (const brand of tierBrands) {
-        // Find ALL results matching this brand (one per retailer)
-        const brandResults = calResults.filter(res =>
-          res.brand?.toLowerCase().includes(brand.toLowerCase().split(' ')[0]) &&
-          res.in_stock !== false
-        );
-
-        const avgP = avg[brand] || null;
-        const avgDisplay = avgP ? `$${avgP.toFixed(3)}` : '—';
-
-        if (brandResults.length === 0) {
-          // Brand checked but no listing found
-          html += `
-            <div class="w3-result-row">
-              <span class="w3-brand" style="color:var(--text2);">${escH(brand)}</span>
-              <span style="color:var(--text3);font-size:10px;">no listing</span>
-              <span class="w3-avg">${avgDisplay}</span>
-              <span class="w3-delta-neu">—</span>
-              <span style="color:var(--text3);">—</span>
-            </div>`;
-        } else {
-          // One row per retailer, sorted cheapest first
-          brandResults.sort((a, b) => (parseFloat(a.ppr)||0) - (parseFloat(b.ppr)||0));
-          brandResults.forEach((r, idx) => {
-            const ppr = parseFloat(r.ppr) || 0;
-            let deltaHtml = '<span class="w3-delta-neu">—</span>';
-            // Only show delta on the cheapest (first) row
-            if (idx === 0 && avgP && ppr) {
-              const diff = ppr - avgP;
-              const sign = diff < 0 ? '↓' : '↑';
-              const cls  = diff < 0 ? 'w3-delta-good' : diff > 0.005 ? 'w3-delta-bad' : 'w3-delta-neu';
-              deltaHtml  = `<span class="${cls}">${sign} $${Math.abs(diff).toFixed(3)}</span>`;
-            }
-            const pprDisplay = ppr ? `$${ppr.toFixed(3)}` : 'N/A';
-            const retailer   = (r.retailer || '').substring(0, 16);
-            // Show brand name only on first row, indent subsequent rows
-            const brandCell  = idx === 0
-              ? `<span class="w3-brand">${escH(brand)}</span>`
-              : `<span class="w3-brand" style="color:var(--text3);padding-left:10px;">↳</span>`;
-            const avgCell    = idx === 0
-              ? `<span class="w3-avg">${avgDisplay}</span>`
-              : `<span class="w3-avg">—</span>`;
-
-            html += `
-              <div class="w3-result-row">
-                ${brandCell}
-                <span class="w3-ppr">${pprDisplay}</span>
-                ${avgCell}
-                ${deltaHtml}
-                <span class="w3-retailer">${escH(retailer)}</span>
-              </div>`;
-          });
-        }
-      }
-
-      html += `</div>`;
-    }
-
-    html += `</div>`;
-  }
-
-  container.innerHTML = html;
-}
-
 // ─── WIDGET 4: CONSTANTS ──────────────────────────────────────────────────────
 const W4_DB_ID  = '31a48b32-cb0b-80d3-ade1-f49144939c3d'; // Wishlist database page ID
 let w4Items     = []; // active Watching items loaded from Notion
-let w4NewEntry  = null; // pending new item awaiting confirmation
 
 // ─── WIDGET 4: LOAD WATCHLIST ────────────────────────────────────────────────
 async function w4LoadWatchlist() {
@@ -2471,6 +2297,7 @@ async function w4LoadWatchlist() {
       };
     });
     w4RenderWatchlist();
+    w4RenderGunDealsLinks();
   } catch (e) {
     document.getElementById('w4-loading').textContent = '✕ Failed to load: ' + e.message;
   }
@@ -2547,14 +2374,12 @@ function w4ToggleAddPanel() {
   const p = document.getElementById('w4-add-panel');
   p.style.display = p.style.display === 'none' ? 'block' : 'none';
   if (p.style.display === 'none') {
-    document.getElementById('w4-review-panel').style.display = 'none';
     hideFeedback('w4-add-feedback');
-    w4NewEntry = null;
   }
 }
 
-// ─── WIDGET 4: RESEARCH & ADD ─────────────────────────────────────────────────
-async function w4ResearchAndAdd() {
+// ─── WIDGET 4: ADD ITEM (Notion record only — no AI call) ─────────────────────
+async function w4AddItem() {
   if (!requireConfig('w4-add-feedback')) return;
   const name     = document.getElementById('w4-new-name').value.trim();
   const model    = document.getElementById('w4-new-model').value.trim();
@@ -2564,230 +2389,56 @@ async function w4ResearchAndAdd() {
   if (!name)  { setFeedback('w4-add-feedback', '⚠ Enter a firearm name.',     'error'); return; }
   if (!model) { setFeedback('w4-add-feedback', '⚠ Enter a model number/UPC.', 'error'); return; }
 
-  document.getElementById('w4-add-feedback').innerHTML = '<span class="spinner"></span> Researching firearm...';
-  document.getElementById('w4-add-feedback').className = 'feedback visible loading';
-
-  try {
-    const prompt = `Research the firearm: "${name}" (model/UPC: ${model}, category: ${category}).
-
-Provide a detailed review summary in this exact markdown structure — use the same section headings and style throughout:
-
-**Overall view:** [2-3 sentence overview]
-
-# ⭐ Overall Consensus
-[bullet points on general reception]
-
-# 🔥 Performance & Shooting Characteristics
-### Recoil & Control
-[details]
-### Reliability
-[details]
-
-# 🛠️ Build Quality & Features
-### Strengths
-[bullet list]
-### Weaknesses / Critiques
-[bullet list]
-
-# 💰 Price & Value
-[MSRP, street price, value assessment]
-
-# 🧭 Bottom Line
-[2-3 sentence summary]
-
-Return ONLY the markdown content above. No preamble, no JSON.`;
-
-    const commentary = await fetchWithClaude(prompt);
-
-    w4NewEntry = { name, model, target, category, commentary };
-
-    // Show review panel
-    document.getElementById('w4-review-content').textContent = commentary;
-    document.getElementById('w4-review-panel').style.display = 'block';
-    hideFeedback('w4-add-feedback');
-
-  } catch (e) {
-    setFeedback('w4-add-feedback', '✕ ' + e.message, 'error');
-  }
-}
-
-function w4CancelReview() {
-  document.getElementById('w4-review-panel').style.display = 'none';
-  w4NewEntry = null;
-}
-
-// ─── WIDGET 4: MARKDOWN TO NOTION BLOCKS ─────────────────────────────────────
-// Converts simple markdown into Notion block objects
-function markdownToBlocks(md) {
-  const blocks = [];
-  const lines  = md.split('\n');
-
-  for (const raw of lines) {
-    const line = raw.trimEnd();
-
-    // H1: # heading
-    if (/^# /.test(line)) {
-      blocks.push({ object:'block', type:'heading_1', heading_1:{ rich_text:[{ type:'text', text:{ content: line.replace(/^# /,'') } }] } });
-    }
-    // H2: ## heading
-    else if (/^## /.test(line)) {
-      blocks.push({ object:'block', type:'heading_2', heading_2:{ rich_text:[{ type:'text', text:{ content: line.replace(/^## /,'') } }] } });
-    }
-    // H3: ### heading
-    else if (/^### /.test(line)) {
-      blocks.push({ object:'block', type:'heading_3', heading_3:{ rich_text:[{ type:'text', text:{ content: line.replace(/^### /,'') } }] } });
-    }
-    // Bullet: - item or * item
-    else if (/^[-*] /.test(line)) {
-      const text = line.replace(/^[-*] /,'');
-      blocks.push({ object:'block', type:'bulleted_list_item', bulleted_list_item:{ rich_text:[{ type:'text', text:{ content: text } }] } });
-    }
-    // Empty line — skip
-    else if (line.trim() === '') {
-      // add a blank paragraph for spacing only if last block wasn't already blank
-      if (blocks.length > 0 && blocks[blocks.length-1].type !== 'paragraph') {
-        blocks.push({ object:'block', type:'paragraph', paragraph:{ rich_text:[] } });
-      }
-    }
-    // Regular paragraph — chunk at 2000 chars to respect Notion's limit
-    else {
-      const text = line.replace(/\*\*/g,''); // strip bold markers
-      const chunks = [];
-      for (let i = 0; i < text.length; i += 1900) chunks.push(text.slice(i, i+1900));
-      for (const chunk of chunks) {
-        blocks.push({ object:'block', type:'paragraph', paragraph:{ rich_text:[{ type:'text', text:{ content: chunk } }] } });
-      }
-    }
-  }
-  return blocks;
-}
-
-// ─── WIDGET 4: CONFIRM ADD ───────────────────────────────────────────────────
-async function w4ConfirmAdd() {
-  if (!w4NewEntry) return;
-  const btn = document.getElementById('w4-confirm-btn');
-  btn.disabled = true;
-
-  document.getElementById('w4-add-feedback').innerHTML = '<span class="spinner"></span> Writing to Notion...';
+  document.getElementById('w4-add-feedback').innerHTML = '<span class="spinner"></span> Adding to Notion...';
   document.getElementById('w4-add-feedback').className = 'feedback visible loading';
 
   try {
     const props = {
-      'Name':      { title: [{ text: { content: w4NewEntry.name } }] },
-      'Model/UPC': { rich_text: [{ text: { content: w4NewEntry.model } }] },
+      'Name':      { title: [{ text: { content: name } }] },
+      'Model/UPC': { rich_text: [{ text: { content: model } }] },
       'Status':    { select: { name: 'Watching' } },
     };
-    if (w4NewEntry.target) props['Target Price'] = { number: w4NewEntry.target };
-    if (w4NewEntry.category) {
-      // Store category in Tags multi-select
-      props['Tags'] = { multi_select: [{ name: w4NewEntry.category }] };
-    }
+    if (target)   props['Target Price'] = { number: target };
+    if (category) props['Tags'] = { multi_select: [{ name: category }] };
 
-    // Create the page
-    const page = await notionCreate(W4_DB_ID, props);
+    await notionCreate(W4_DB_ID, props);
 
-    // Write commentary as properly structured Notion blocks
-    if (page?.id && w4NewEntry.commentary) {
-      const blocks = markdownToBlocks(w4NewEntry.commentary);
-      if (blocks.length > 0) {
-        const blockUrl = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/blocks/${page.id}/children`);
-        // Notion allows max 100 blocks per request — chunk if needed
-        for (let i = 0; i < blocks.length; i += 100) {
-          await fetch(blockUrl, {
-            method: 'PATCH',
-            headers: notionHeaders(),
-            body: JSON.stringify({ children: blocks.slice(i, i + 100) }),
-          });
-        }
-      }
-    }
+    setFeedback('w4-add-feedback', `✓ ${name} added to Notion Wishlist! Open the Notion page to add research notes.`, 'success');
 
-    setFeedback('w4-add-feedback',
-      `✓ ${w4NewEntry.name} added to Notion Wishlist!`,
-      'success'
-    );
+    // Reset fields
+    document.getElementById('w4-new-name').value   = '';
+    document.getElementById('w4-new-model').value  = '';
+    document.getElementById('w4-new-target').value = '';
 
-    // Reset and reload
-    document.getElementById('w4-review-panel').style.display = 'none';
-    document.getElementById('w4-new-name').value    = '';
-    document.getElementById('w4-new-model').value   = '';
-    document.getElementById('w4-new-target').value  = '';
-    w4NewEntry = null;
     await w4LoadWatchlist();
 
   } catch (e) {
     setFeedback('w4-add-feedback', '✕ ' + e.message, 'error');
   }
-  btn.disabled = false;
 }
 
-// ─── WIDGET 4: PRICE CHECK ───────────────────────────────────────────────────
-async function checkWishlistPrices() {
-  if (!requireConfig('w4-feedback')) return;
+// ─── WIDGET 4: GUN.DEALS LINKS ───────────────────────────────────────────────
+// Renders one link button per watchlist item — opens gun.deals search for that model
+function w4RenderGunDealsLinks() {
+  const container = document.getElementById('w4-gundeals-links');
+  if (!container) return;
   if (w4Items.length === 0) {
-    setFeedback('w4-feedback', '⚠ No items on watchlist.', 'error');
+    container.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--text3);">No items on watchlist.</span>';
     return;
   }
-
-  const btn = document.getElementById('w4-btn');
-  btn.disabled = true;
-  document.getElementById('w4-feedback').innerHTML = '<span class="spinner"></span> Searching gun.deals...';
-  document.getElementById('w4-feedback').className = 'feedback visible loading';
-
-  try {
-    const itemList = w4Items.map(i => `"${i.name}" — model/UPC: ${i.model}`).join('\n');
-    const prompt = `Search gun.deals for the following firearms to find their current lowest new in-stock prices. For each item return the lowest price found, the retailer, and whether it is in stock.
-
-Return a JSON array ONLY — no markdown, no preamble. Always include the retailer name even if approximate. If no retailer name is known use "Unknown retailer". If the price is a MAP/minimum advertised price or requires contacting the dealer, set is_map to true:
-[{"model":"KN9069B-FSA","name":"Springfield Kuna","price":1049.99,"retailer":"Vance Outdoors","in_stock":true,"is_map":false},...]
-
-Use the model/UPC as the "model" field exactly as given. Items:
-${itemList}`;
-
-    const raw  = await fetchWithClaude(prompt);
-
-    let results = [];
-    try {
-      // Strip markdown code fences if present
-      const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
-      const m = cleaned.match(/\[[\s\S]*\]/);
-      if (m) results = JSON.parse(m[0]);
-    } catch (_) {}
-
-    if (results.length === 0) {
-      setFeedback('w4-feedback', '⚠ No structured results returned. Raw response:\n\n' + (raw || '(empty — web search may still be processing)'), '');
-      btn.disabled = false;
-      return;
-    }
-
-    // Update each item in Notion and locally
-    const today = todayIso();
-    for (const item of w4Items) {
-      const match = results.find(r =>
-        r.model === item.model ||
-        r.model === item.model.replace(/\s/g,'') // strip spaces
-      );
-      if (match && match.price) {
-        item.lastPrice    = match.price;
-        item.lastDate     = today;
-        item.lastRetailer = match.retailer || '';
-        item.isMap        = match.is_map || false;
-        try {
-          await notionUpdate(item.id, {
-            'Last Checked Price': { number: match.price },
-            'Last Checked Date':  { date: { start: today } },
-          });
-        } catch (_) {}
-      }
-    }
-
-    hideFeedback('w4-feedback');
-    w4RenderWatchlist();
-
-  } catch (e) {
-    setFeedback('w4-feedback', '✕ ' + e.message, 'error');
-  }
-  btn.disabled = false;
+  container.innerHTML = w4Items.map(item => {
+    const query = encodeURIComponent(item.model || item.name);
+    const url   = `https://gun.deals/search/apachesolr_search/${query}`;
+    return `
+      <a href="${url}" target="_blank" rel="noopener"
+         style="display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:0.06em;
+                padding:6px 16px;border:1px solid var(--border2);color:var(--accent);
+                background:var(--accent-glow);text-decoration:none;transition:all 0.15s;"
+         onmouseover="this.style.borderColor='var(--accent2)'"
+         onmouseout="this.style.borderColor='var(--border2)'">
+        ↗ ${escH(item.name)}
+      </a>`;
+  }).join('');
 }
 </script>
 </body>
