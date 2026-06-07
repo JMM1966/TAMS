@@ -831,28 +831,26 @@
     <input class="config-input" type="password" id="cfg-token" placeholder="ntn_xxxxxxxxxxxx">
   </div>
   <div class="config-field">
-    <label class="config-label">Ammo Tracker DB ID</label>
-    <input class="config-input" type="text" id="cfg-ammo-db" value="31a48b32-cb0b-81c5-990d-df543b2cfc67" placeholder="database page ID">
+    <label class="config-label">Ammo History DB ID</label>
+    <input class="config-input" type="text" id="cfg-ammo-db" placeholder="database ID">
+  </div>
+  <div class="config-field">
+    <label class="config-label">Ammo Inventory DB ID</label>
+    <input class="config-input" type="text" id="cfg-inventory-db" placeholder="database ID">
   </div>
   <div class="config-field">
     <label class="config-label">Range Log DB ID</label>
-    <input class="config-input" type="text" id="cfg-range-db" value="31a48b32-cb0b-80ce-afdb-efa788fcdc74" placeholder="database page ID">
+    <input class="config-input" type="text" id="cfg-range-db" placeholder="database ID">
   </div>
   <div class="config-field">
     <label class="config-label">CORS Proxy URL</label>
     <input class="config-input" type="text" id="cfg-proxy" value="https://corsproxy.io/?url=" placeholder="https://corsproxy.io/?url=">
   </div>
-  <button class="save-btn" onclick="saveConfig()">Save Config</button>
   <div class="config-note">
     Your token is stored in <strong>localStorage</strong> on this device only — never sent anywhere except Notion's API.<br><br>
-    <strong>CORS Proxy:</strong> Required because browsers block direct Notion API calls from static pages. corsproxy.io is free and open source. Alternatively deploy your own Cloudflare Worker at <a href="https://corsproxy.io" target="_blank">corsproxy.io</a>.<br><br>
-    <strong>Widgets 3 &amp; 4</strong> use Claude AI to fetch and parse AmmoSeek / gun.deals via the proxy. Provide an Anthropic API key below to enable them.
+    <strong>CORS Proxy:</strong> Required because browsers block direct Notion API calls from static pages.
   </div>
-  <div class="config-field" style="margin-top:16px;">
-    <label class="config-label">Anthropic API Key (for price monitors)</label>
-    <input class="config-input" type="password" id="cfg-anthropic" placeholder="sk-ant-xxxxxxxxxxxx">
-  </div>
-  <button class="save-btn" onclick="saveConfig()" style="margin-top:8px;">Save All</button>
+  <button class="save-btn" onclick="saveConfig()">Save Config</button>
 </div>
 
 <!-- HEADER -->
@@ -872,10 +870,9 @@
 
 <!-- TICKER -->
 <div class="ticker-bar" id="ticker">
-  <span class="ticker-item">T.A.M.S. v1.0</span>
+  <span class="ticker-item">T.A.M.S. v2.0</span>
   <span class="ticker-item">NOTION: <span id="ticker-notion">OFFLINE</span></span>
   <span class="ticker-item">WEAPONS: AR-15 "Frank" / Girsan MC X / .22 Buckmark / S&W 1854</span>
-  <span class="ticker-item">FIFO: ENABLED</span>
   <span class="ticker-item">PROXY: corsproxy.io</span>
 </div>
 
@@ -897,8 +894,12 @@
       <div id="mag-defaults-panel">
         <div class="section-label">Magazine Defaults</div>
         <div class="mag-default-row">
-          <span class="mag-default-label">AR-15 "Frank" — rounds/mag</span>
-          <input type="number" id="md-frank" min="0" placeholder="30">
+          <span class="mag-default-label">AR-15 "Frank" (5.56) — rounds/mag</span>
+          <input type="number" id="md-frank-556" min="0" placeholder="30">
+        </div>
+        <div class="mag-default-row">
+          <span class="mag-default-label">AR-15 "Frank" (.223) — rounds/mag</span>
+          <input type="number" id="md-frank-223" min="0" placeholder="30">
         </div>
         <div class="mag-default-row">
           <span class="mag-default-label">Girsan MC X — rounds/mag</span>
@@ -906,11 +907,15 @@
         </div>
         <div class="mag-default-row">
           <span class="mag-default-label">.22 Buckmark — rounds/mag</span>
-          <input type="number" id="md-buckmark" min="0" placeholder="0">
+          <input type="number" id="md-buckmark" min="0" placeholder="10">
         </div>
         <div class="mag-default-row">
-          <span class="mag-default-label">S&amp;W 1854 — rounds/mag</span>
-          <input type="number" id="md-sw1854" min="0" placeholder="0">
+          <span class="mag-default-label">S&amp;W 1854 (.38 Spl) — rounds/cylinder</span>
+          <input type="number" id="md-sw38" min="0" placeholder="8">
+        </div>
+        <div class="mag-default-row">
+          <span class="mag-default-label">S&amp;W 1854 (.357 Mag) — rounds/cylinder</span>
+          <input type="number" id="md-sw357" min="0" placeholder="8">
         </div>
         <button class="btn-secondary" onclick="saveMagDefaults()" style="margin-top:8px;width:auto;padding:6px 20px;">Save Defaults</button>
         <span id="md-saved" style="font-family:var(--mono);font-size:10px;color:var(--green);margin-left:10px;display:none;">Saved.</span>
@@ -929,58 +934,19 @@
             <option value="other">Other...</option>
           </select>
         </div>
-        <div class="field" style="margin-bottom:0;" id="w1-range-other-field" style="display:none;">
+        <div class="field" style="margin-bottom:0;" id="w1-range-other-field">
           <label>Range Name</label>
           <input type="text" id="w1-range-other" placeholder="Enter range name">
         </div>
       </div>
 
       <!-- FIREARM ROWS -->
-      <div class="section-label">Firearms</div>
+      <div class="section-label">Firearms &amp; Rounds Fired</div>
       <div id="w1-fw-rows"></div>
       <button class="btn-secondary" onclick="addFirearmRow()" style="margin-bottom:14px;">+ Add Firearm</button>
 
-      <div class="divider"></div>
-
-      <!-- RENTAL GUN TOGGLE -->
-      <div class="toggle-row">
-        <label class="toggle-switch">
-          <input type="checkbox" id="w1-rental-toggle" onchange="toggleRental()">
-          <span class="toggle-slider"></span>
-        </label>
-        <span class="toggle-text">Rental gun (ammo deduction only — not logged to Range Log)</span>
-      </div>
-      <div class="rental-section" id="w1-rental-section">
-        <div class="rental-header">
-          <span class="rental-label">Rental Gun Ammo</span>
-          <span class="rental-note">Updates Fired count only</span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div class="field" style="margin-bottom:0;">
-            <label>Ammo</label>
-            <select id="w1-rental-ammo">
-              <option value="">— Select ammo —</option>
-            </select>
-          </div>
-          <div class="field" style="margin-bottom:0;">
-            <label>Rounds Fired</label>
-            <input type="number" id="w1-rental-rounds" min="1" placeholder="e.g. 50">
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:16px;">
-        <button class="btn-primary" id="w1-review-btn" onclick="w1Review()">Review &amp; Submit to Notion</button>
-      </div>
-
-      <!-- REVIEW MODAL -->
-      <div id="w1-review-modal">
-        <div class="review-title">Session Summary — Confirm Before Write</div>
-        <div id="w1-review-content"></div>
-        <div class="review-btn-row">
-          <button class="btn-secondary" onclick="w1CancelReview()">&#9664; Edit</button>
-          <button class="btn-primary" id="w1-confirm-btn" onclick="w1Confirm()">Confirm &amp; Write to Notion</button>
-        </div>
+      <div style="margin-top:8px;">
+        <button class="btn-primary" id="w1-submit-btn" onclick="w1Submit()">Submit to Notion</button>
       </div>
 
       <div class="feedback" id="w1-feedback"></div>
@@ -1001,34 +967,54 @@
       <!-- BRAND -->
       <div class="field">
         <label>Brand</label>
-        <select id="w2-brand-sel" onchange="w2ComboChange('brand')">
-          <option value="">— Select or type below —</option>
+        <select id="w2-brand-sel" onchange="w2SelectChange('brand')">
+          <option value="">— Select existing brand —</option>
         </select>
-        <input type="text" id="w2-brand" placeholder="Or type new brand" style="margin-top:6px;" oninput="w2UpdateLotName()">
+        <input type="text" id="w2-brand" placeholder="Or type new brand" style="margin-top:6px;display:none;" oninput="w2UpdatePreview()">
+      </div>
+
+      <!-- NAME (product line) -->
+      <div class="field">
+        <label>Name <span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.08em;">(product line)</span></label>
+        <div id="w2-name-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;min-height:24px;"></div>
+        <div style="display:flex;gap:6px;">
+          <select id="w2-name-sel" style="flex:1;" onchange="w2AddNameTag()">
+            <option value="">— Add existing name —</option>
+          </select>
+          <input type="text" id="w2-name-new" placeholder="New name..." style="flex:1;" onkeydown="if(event.key==='Enter'){w2AddNewNameTag();}">
+          <button class="btn-secondary" style="padding:0 10px;font-size:11px;" onclick="w2AddNewNameTag()">+</button>
+        </div>
       </div>
 
       <!-- CALIBER -->
       <div class="field">
         <label>Caliber</label>
-        <select id="w2-caliber-sel" onchange="w2ComboChange('caliber')">
-          <option value="">— Select or type below —</option>
+        <select id="w2-caliber-sel" onchange="w2SelectChange('caliber')">
+          <option value="">— Select caliber —</option>
+          <option value="9mm">9mm</option>
+          <option value="5.56">5.56</option>
+          <option value=".223">.223</option>
+          <option value=".22 LR">.22 LR</option>
+          <option value=".38 Special">.38 Special</option>
+          <option value=".357 Magnum">.357 Magnum</option>
+          <option value="__other__">Other (type below)</option>
         </select>
-        <input type="text" id="w2-caliber" placeholder="Or type new caliber" style="margin-top:6px;" oninput="w2UpdateLotName()">
+        <input type="text" id="w2-caliber" placeholder="Type caliber" style="margin-top:6px;display:none;" oninput="w2UpdatePreview()">
       </div>
 
       <!-- GRAIN -->
       <div class="field">
         <label>Grain</label>
-        <select id="w2-grain-sel" onchange="w2ComboChange('grain')">
+        <select id="w2-grain-sel" onchange="w2SelectChange('grain')">
           <option value="">— Select or type below —</option>
         </select>
-        <input type="text" id="w2-grain" placeholder="Or type new grain" style="margin-top:6px;" oninput="w2UpdateLotName()">
+        <input type="text" id="w2-grain" placeholder="Or type new grain" style="margin-top:6px;display:none;" oninput="w2UpdatePreview()">
       </div>
 
-      <!-- LOT NAME PREVIEW -->
-      <div id="w2-lot-preview" style="display:none;margin-bottom:14px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px;">Lot name (auto-generated)</div>
-        <div id="w2-lot-name" style="font-family:var(--mono);font-size:12px;color:var(--accent);padding:6px 10px;background:var(--accent-glow);border-left:2px solid var(--accent-dim);"></div>
+      <!-- ENTRY PREVIEW -->
+      <div id="w2-preview" style="display:none;margin-bottom:14px;">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px;">Entry preview</div>
+        <div id="w2-preview-text" style="font-family:var(--mono);font-size:12px;color:var(--accent);padding:6px 10px;background:var(--accent-glow);border-left:2px solid var(--accent-dim);"></div>
       </div>
 
       <!-- QTY / VALUE / DATE -->
@@ -1056,7 +1042,7 @@
       <!-- RETAILER -->
       <div class="field">
         <label>Retailer</label>
-        <select id="w2-retailer-sel" onchange="w2ComboChange('retailer')">
+        <select id="w2-retailer-sel" onchange="w2SelectChange('retailer')">
           <option value="">— Select or type below —</option>
         </select>
         <input type="text" id="w2-retailer" placeholder="Or type new retailer" style="margin-top:6px;display:none;">
@@ -1151,19 +1137,19 @@
 <script>
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const CFG = {
-  get token()      { return localStorage.getItem('tams_token') || ''; },
-  get ammoDb()     { return localStorage.getItem('tams_ammo_db') || '31a48b32-cb0b-81c5-990d-df543b2cfc67'; },
-  get rangeDb()    { return localStorage.getItem('tams_range_db') || '31a48b32-cb0b-80ce-afdb-efa788fcdc74'; },
-  get proxy()      { return localStorage.getItem('tams_proxy') || 'https://corsproxy.io/?url='; },
-  get anthropic()  { return localStorage.getItem('tams_anthropic') || ''; },
+  get token()       { return localStorage.getItem('tams_token') || ''; },
+  get ammoDb()      { return localStorage.getItem('tams_ammo_db') || ''; },
+  get inventoryDb() { return localStorage.getItem('tams_inventory_db') || ''; },
+  get rangeDb()     { return localStorage.getItem('tams_range_db') || ''; },
+  get proxy()       { return localStorage.getItem('tams_proxy') || 'https://corsproxy.io/?url='; },
 };
 
 function openConfig() {
-  document.getElementById('cfg-token').value = CFG.token;
-  document.getElementById('cfg-ammo-db').value = CFG.ammoDb;
-  document.getElementById('cfg-range-db').value = CFG.rangeDb;
-  document.getElementById('cfg-proxy').value = CFG.proxy;
-  document.getElementById('cfg-anthropic').value = CFG.anthropic;
+  document.getElementById('cfg-token').value        = CFG.token;
+  document.getElementById('cfg-ammo-db').value      = CFG.ammoDb;
+  document.getElementById('cfg-inventory-db').value = CFG.inventoryDb;
+  document.getElementById('cfg-range-db').value     = CFG.rangeDb;
+  document.getElementById('cfg-proxy').value        = CFG.proxy;
   document.getElementById('config-panel').classList.add('open');
   document.getElementById('backdrop').classList.add('open');
 }
@@ -1174,15 +1160,14 @@ function closeConfig() {
 }
 
 function saveConfig() {
-  localStorage.setItem('tams_token',      document.getElementById('cfg-token').value.trim());
-  localStorage.setItem('tams_ammo_db',    document.getElementById('cfg-ammo-db').value.trim());
-  localStorage.setItem('tams_range_db',   document.getElementById('cfg-range-db').value.trim());
-  localStorage.setItem('tams_proxy',      document.getElementById('cfg-proxy').value.trim());
-  localStorage.setItem('tams_anthropic',  document.getElementById('cfg-anthropic').value.trim());
+  localStorage.setItem('tams_token',        document.getElementById('cfg-token').value.trim());
+  localStorage.setItem('tams_ammo_db',      document.getElementById('cfg-ammo-db').value.trim());
+  localStorage.setItem('tams_inventory_db', document.getElementById('cfg-inventory-db').value.trim());
+  localStorage.setItem('tams_range_db',     document.getElementById('cfg-range-db').value.trim());
+  localStorage.setItem('tams_proxy',        document.getElementById('cfg-proxy').value.trim());
   closeConfig();
   updateStatus();
-  if (CFG.token) { loadInventory().then(() => w2PopulateDropdowns()); }
-  w4LoadWatchlist();
+  if (CFG.token) { w2PopulateDropdowns(); }
   setFeedback('w1-feedback', 'Config saved.', 'success');
 }
 
@@ -1295,77 +1280,35 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('w1-date').value = todayIso();
   document.getElementById('w2-date').value = todayIso();
   document.getElementById('w1-range-other-field').style.display = 'none';
-  // W2: hide free-text inputs until "Other" is chosen in each dropdown
-  ['w2-brand','w2-caliber','w2-grain','w2-retailer'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
   updateStatus();
   w3InitLinks();
-  // Load live inventory from Notion, then render first row
-  // If no token yet, addFirearmRow still runs (combos will show all until token saved)
-  await loadInventory();
-  await w2PopulateDropdowns();
   addFirearmRow();
+  if (CFG.token) { await w2PopulateDropdowns(); }
   w4LoadWatchlist();
 });
 
 // ─── WIDGET 1: CONSTANTS ──────────────────────────────────────────────────────
-
+// Firearm display name → { caliber, inventoryPageId }
 const FIREARMS = [
-  { value: 'AR-15 "Frank"',  label: 'AR-15 "Frank"',  calibers: ['5.56 NATO', '.223 Rem'] },
-  { value: 'Girsan MC X',    label: 'Girsan MC X',    calibers: ['9mm'] },
-  { value: '.22 Buckmark',   label: '.22 Buckmark',   calibers: ['.22 LR'] },
-  { value: 'S&W 1854',       label: 'S&W 1854',       calibers: ['.357 Magnum', '.38 Special'] },
+  { label: 'AR-15 "Frank" (5.56)',  caliber: '5.56',         invId: '37848b32-cb0b-809f-b3d6-d4e744926288', magKey: 'frank556' },
+  { label: 'AR-15 "Frank" (.223)',  caliber: '.223',          invId: '37848b32-cb0b-80de-b6d3-c0fe50b85ae6', magKey: 'frank223' },
+  { label: 'Girsan MC X',           caliber: '9mm',           invId: '37848b32-cb0b-8043-9e7d-fb0893d73b06', magKey: 'girsan'   },
+  { label: '.22 Buckmark',          caliber: '.22 LR',        invId: '37848b32-cb0b-8014-8494-df992fc0e803', magKey: 'buckmark' },
+  { label: 'S&W 1854 (.38 Spl)',    caliber: '.38 Special',   invId: '37848b32-cb0b-8057-a3df-c9c8a35ce3e8', magKey: 'sw38'     },
+  { label: 'S&W 1854 (.357 Mag)',   caliber: '.357 Magnum',   invId: '37848b32-cb0b-802f-b99c-ed531fc8307f', magKey: 'sw357'    },
 ];
 
-// All known ammo combos — keyed by caliber keywords for filtering
-// combo: { label, brand, caliber, grain }
-const AMMO_COMBOS = [
-  { label: 'Blazer 9mm 115gr',              brand: 'Blazer',     caliber: '9mm',         grain: '115' },
-  { label: 'Winchester 9mm 115gr',          brand: 'Winchester', caliber: '9mm',         grain: '115' },
-  { label: 'Magtech 9mm 115gr',             brand: 'Magtech',    caliber: '9mm',         grain: '115' },
-  { label: 'PMC Bronze 9mm',                brand: 'PMC',        caliber: '9mm',         grain: '' },
-  { label: 'Fiocchi Range Dynamics 9mm 115gr', brand: 'Fiocchi', caliber: '9mm',         grain: '115' },
-  { label: 'Sellier & Bellot 9mm',          brand: 'Sellier & Bellot', caliber: '9mm',   grain: '' },
-  { label: 'Winchester 5.56 55gr',          brand: 'Winchester', caliber: '5.56 NATO',   grain: '55' },
-  { label: 'PMC X-Tac 5.56 55gr',           brand: 'PMC',        caliber: '5.56 NATO',   grain: '55' },
-  { label: 'Hornady Frontier 5.56',         brand: 'Hornady',    caliber: '5.56 NATO',   grain: '' },
-  { label: 'Winchester .223 55gr',          brand: 'Winchester', caliber: '.223 Rem',    grain: '55' },
-  { label: 'PMC X-Tac .223 55gr',           brand: 'PMC',        caliber: '.223 Rem',    grain: '55' },
-  { label: 'Hornady Frontier .223',         brand: 'Hornady',    caliber: '.223 Rem',    grain: '' },
-  { label: 'Sellier & Bellot .38 Spl 158gr', brand: 'Sellier & Bellot', caliber: '.38 Special', grain: '158' },
-  { label: 'Sellier & Bellot .357 Mag 158gr', brand: 'Sellier & Bellot', caliber: '.357 Magnum', grain: '158' },
-  { label: 'CCI Mini Mag .22 LR 40gr',      brand: 'CCI',        caliber: '.22 LR',      grain: '40' },
-];
-
-// Which calibers map to which firearm
-function calibersForFirearm(fwValue) {
-  const fw = FIREARMS.find(f => f.value === fwValue);
-  return fw ? fw.calibers : [];
-}
-
-// Filter AMMO_COMBOS to those matching any of the given calibers
-function combosForCalibers(calibers) {
-  return AMMO_COMBOS.filter(c => calibers.includes(c.caliber));
-}
-
-const MAG_DEFAULTS_KEY = 'tams_mag_defaults_v2';
+const MAG_DEFAULTS_KEY = 'tams_mag_defaults_v3';
 
 function getMagDefaults() {
   try { return JSON.parse(localStorage.getItem(MAG_DEFAULTS_KEY)) || {}; }
   catch { return {}; }
 }
 
-function defaultRpmForFirearm(fwValue) {
+function defaultRpmForFirearm(magKey) {
   const d = getMagDefaults();
-  const map = {
-    'AR-15 "Frank"': d.frank   ?? 30,
-    'Girsan MC X':   d.girsan  ?? 17,
-    '.22 Buckmark':  d.buckmark ?? 0,
-    'S&W 1854':      d.sw1854  ?? 0,
-  };
-  return map[fwValue] ?? 0;
+  const defaults = { frank556: 30, frank223: 30, girsan: 17, buckmark: 10, sw38: 8, sw357: 8 };
+  return d[magKey] ?? defaults[magKey] ?? 0;
 }
 
 // ─── MAG DEFAULTS PANEL ───────────────────────────────────────────────────────
@@ -1373,20 +1316,24 @@ function toggleMagDefaults() {
   const p = document.getElementById('mag-defaults-panel');
   if (!p.classList.contains('open')) {
     const d = getMagDefaults();
-    document.getElementById('md-frank').value    = d.frank    ?? 30;
-    document.getElementById('md-girsan').value   = d.girsan   ?? 17;
-    document.getElementById('md-buckmark').value = d.buckmark ?? 0;
-    document.getElementById('md-sw1854').value   = d.sw1854   ?? 0;
+    document.getElementById('md-frank-556').value = d.frank556 ?? 30;
+    document.getElementById('md-frank-223').value = d.frank223 ?? 30;
+    document.getElementById('md-girsan').value    = d.girsan   ?? 17;
+    document.getElementById('md-buckmark').value  = d.buckmark ?? 10;
+    document.getElementById('md-sw38').value      = d.sw38     ?? 8;
+    document.getElementById('md-sw357').value     = d.sw357    ?? 8;
   }
   p.classList.toggle('open');
 }
 
 function saveMagDefaults() {
   localStorage.setItem(MAG_DEFAULTS_KEY, JSON.stringify({
-    frank:    parseInt(document.getElementById('md-frank').value)    || 0,
-    girsan:   parseInt(document.getElementById('md-girsan').value)   || 0,
-    buckmark: parseInt(document.getElementById('md-buckmark').value) || 0,
-    sw1854:   parseInt(document.getElementById('md-sw1854').value)   || 0,
+    frank556: parseInt(document.getElementById('md-frank-556').value) || 0,
+    frank223: parseInt(document.getElementById('md-frank-223').value) || 0,
+    girsan:   parseInt(document.getElementById('md-girsan').value)    || 0,
+    buckmark: parseInt(document.getElementById('md-buckmark').value)  || 0,
+    sw38:     parseInt(document.getElementById('md-sw38').value)      || 0,
+    sw357:    parseInt(document.getElementById('md-sw357').value)     || 0,
   }));
   const saved = document.getElementById('md-saved');
   saved.style.display = 'inline';
@@ -1396,8 +1343,7 @@ function saveMagDefaults() {
 // ─── RANGE DROPDOWN ───────────────────────────────────────────────────────────
 function w1RangeChange() {
   const sel = document.getElementById('w1-range-select').value;
-  const f   = document.getElementById('w1-range-other-field');
-  f.style.display = sel === 'other' ? 'block' : 'none';
+  document.getElementById('w1-range-other-field').style.display = sel === 'other' ? 'block' : 'none';
 }
 
 function getRangeName() {
@@ -1408,14 +1354,12 @@ function getRangeName() {
 
 // ─── FIREARM ROWS ─────────────────────────────────────────────────────────────
 let fwRowCounter = 0;
-// Cache of available lots per combo key (brand|caliber|grain), loaded on Review
-let lotsCache = {};
 
-function addFirearmRow(fwValue) {
+function addFirearmRow() {
   fwRowCounter++;
-  const id = fwRowCounter;
-  const fw = fwValue || FIREARMS[0].value;
-  const rpm = defaultRpmForFirearm(fw);
+  const id  = fwRowCounter;
+  const fw  = FIREARMS[0];
+  const rpm = defaultRpmForFirearm(fw.magKey);
 
   const div = document.createElement('div');
   div.className = 'fw-row';
@@ -1429,20 +1373,19 @@ function addFirearmRow(fwValue) {
       <div class="field" style="margin-bottom:0;">
         <label>Firearm</label>
         <select id="fw-sel-${id}" onchange="onFirearmChange(${id})">
-          ${FIREARMS.map(f => `<option value="${f.value}" ${f.value===fw?'selected':''}>${f.label}</option>`).join('')}
+          ${FIREARMS.map((f,i) => `<option value="${i}" ${i===0?'selected':''}>${f.label}</option>`).join('')}
         </select>
       </div>
       <div class="field" style="margin-bottom:0;">
-        <label>Ammo</label>
-        <select id="fw-ammo-${id}">
-          <option value="">Loading...</option>
-        </select>
+        <label>Caliber</label>
+        <input type="text" id="fw-caliber-${id}" value="${escH(fw.caliber)}" readonly
+          style="background:var(--bg3);color:var(--accent);font-family:var(--mono);font-size:12px;">
       </div>
     </div>
     <div class="fw-mag-row">
       <div class="field" style="margin-bottom:0;">
-        <label>Mags</label>
-        <input type="number" id="fw-mags-${id}" min="0" placeholder="0" value="" oninput="recalcRounds(${id})">
+        <label>Mags / Cylinders</label>
+        <input type="number" id="fw-mags-${id}" min="0" placeholder="0" oninput="recalcRounds(${id})">
       </div>
       <div class="field" style="margin-bottom:0;">
         <label>Rounds / Mag</label>
@@ -1450,13 +1393,12 @@ function addFirearmRow(fwValue) {
       </div>
       <div class="field" style="margin-bottom:0;">
         <label>Rounds Fired</label>
-        <input type="number" id="fw-rounds-${id}" min="1" placeholder="auto" class="fw-rounds-auto"
+        <input type="number" id="fw-rounds-${id}" min="1" placeholder="auto"
           oninput="onRoundsManual(${id})">
       </div>
     </div>
   `;
   document.getElementById('w1-fw-rows').appendChild(div);
-  populateAmmoDropdown(id, fw);
 }
 
 function removeFirearmRow(id) {
@@ -1465,10 +1407,11 @@ function removeFirearmRow(id) {
 }
 
 function onFirearmChange(id) {
-  const fw = document.getElementById(`fw-sel-${id}`).value;
-  document.getElementById(`fw-rpm-${id}`).value = defaultRpmForFirearm(fw);
+  const idx = parseInt(document.getElementById(`fw-sel-${id}`).value);
+  const fw  = FIREARMS[idx];
+  document.getElementById(`fw-caliber-${id}`).value = fw.caliber;
+  document.getElementById(`fw-rpm-${id}`).value = defaultRpmForFirearm(fw.magKey);
   recalcRounds(id);
-  populateAmmoDropdown(id, fw);
 }
 
 function recalcRounds(id) {
@@ -1476,179 +1419,16 @@ function recalcRounds(id) {
   const rpm  = parseInt(document.getElementById(`fw-rpm-${id}`).value)  || 0;
   const inp  = document.getElementById(`fw-rounds-${id}`);
   if (!inp.dataset.manualOverride) {
-    const calc = mags * rpm;
-    inp.value = calc > 0 ? calc : '';
-    inp.classList.add('fw-rounds-auto');
-    inp.classList.remove('manual-override');
+    inp.value = mags * rpm > 0 ? mags * rpm : '';
   }
 }
 
 function onRoundsManual(id) {
-  const inp = document.getElementById(`fw-rounds-${id}`);
-  inp.dataset.manualOverride = '1';
-  inp.classList.remove('fw-rounds-auto');
-  inp.classList.add('manual-override');
+  document.getElementById(`fw-rounds-${id}`).dataset.manualOverride = '1';
 }
 
-// Populate ammo dropdown for a row — shows only combos matching the firearm's calibers
-// For S&W 1854 it shows both .357 and .38 combos
-function populateAmmoDropdown(rowId, fwValue) {
-  const calibers = calibersForFirearm(fwValue);
-  const combos   = combosForCalibers(calibers).filter(comboHasStock);
-  const sel = document.getElementById(`fw-ammo-${rowId}`);
-  sel.innerHTML = combos.length
-    ? combos.map((c, i) =>
-        `<option value="${i}">${c.label}${comboRemainingLabel(c)}</option>`
-      ).join('')
-    : '<option value="">No stock on hand</option>';
-  sel.dataset.fwValue = fwValue;
-}
-
-function getSelectedCombo(rowId) {
-  const sel = document.getElementById(`fw-ammo-${rowId}`);
-  const fwValue = document.getElementById(`fw-sel-${rowId}`).value;
-  const calibers = calibersForFirearm(fwValue);
-  const combos   = combosForCalibers(calibers).filter(comboHasStock);
-  const idx = parseInt(sel.value);
-  return isNaN(idx) ? null : combos[idx];
-}
-
-// ─── RENTAL GUN ───────────────────────────────────────────────────────────────
-function toggleRental() {
-  const on = document.getElementById('w1-rental-toggle').checked;
-  document.getElementById('w1-rental-section').classList.toggle('open', on);
-  if (on) populateRentalAmmoDropdown();
-}
-
-function populateRentalAmmoDropdown() {
-  const sel = document.getElementById('w1-rental-ammo');
-  const inStock = AMMO_COMBOS.filter(comboHasStock);
-  sel.innerHTML = '<option value="">— Select ammo —</option>' +
-    inStock.map((c, i) =>
-      `<option value="${AMMO_COMBOS.indexOf(c)}">${c.label}${comboRemainingLabel(c)}</option>`
-    ).join('');
-}
-
-// ─── INVENTORY MAP ────────────────────────────────────────────────────────────
-// Keyed by "brand|caliber|grain" → total remaining rounds across all lots.
-// Populated once on load (when token is present) and refreshed after each write.
-let inventoryMap = null; // null = not yet loaded; {} = loaded but empty
-let inventoryLoading = false; // guard against concurrent loads
-
-async function loadInventory() {
-  if (!CFG.token) return;
-  if (inventoryLoading) return; // already in progress
-  inventoryLoading = true;
-  try {
-    // Pull every page from Ammo Tracker (up to 100; paginate if needed)
-    const map = {};
-    let cursor = undefined;
-    do {
-      const body = { page_size: 100 };
-      if (cursor) body.start_cursor = cursor;
-      const url = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/databases/${CFG.ammoDb}/query`);
-      const r = await fetch(url, { method: 'POST', headers: notionHeaders(), body: JSON.stringify(body) });
-      if (!r.ok) break;
-      const data = await r.json();
-      for (const p of data.results) {
-        const pr  = p.properties;
-        const brand   = pr.Brand?.title?.[0]?.text?.content || '';
-        const caliber = pr.Caliber?.rich_text?.[0]?.text?.content || '';
-        const grain   = pr.Grain?.rich_text?.[0]?.text?.content || '';
-        const purchased = pr.Purchased?.number || 0;
-        const fired     = pr.Fired?.number     || 0;
-        const remaining = purchased - fired;
-        if (remaining > 0) {
-          const key = `${brand}|${caliber}|${grain}`;
-          map[key] = (map[key] || 0) + remaining;
-        }
-      }
-      cursor = data.has_more ? data.next_cursor : undefined;
-    } while (cursor);
-    inventoryMap = map;
-    // Refresh all existing ammo dropdowns now that we have live data
-    document.querySelectorAll('.fw-row').forEach(row => {
-      const id = row.dataset.rowId;
-      const fw = document.getElementById(`fw-sel-${id}`)?.value;
-      if (fw) populateAmmoDropdown(id, fw);
-    });
-  } catch (e) {
-    console.warn('TAMS: inventory load failed', e);
-    inventoryMap = {}; // fall back to showing all combos
-  } finally {
-    inventoryLoading = false;
-  }
-}
-
-function comboHasStock(combo) {
-  if (!inventoryMap) return true; // not loaded yet — show all
-  const key = `${combo.brand}|${combo.caliber}|${combo.grain}`;
-  // grain may be stored with or without 'gr' suffix — check both
-  const keyAlt = `${combo.brand}|${combo.caliber}|${combo.grain}gr`;
-  return (inventoryMap[key] || 0) > 0 || (inventoryMap[keyAlt] || 0) > 0;
-}
-
-function comboRemainingLabel(combo) {
-  if (!inventoryMap) return '';
-  const key    = `${combo.brand}|${combo.caliber}|${combo.grain}`;
-  const keyAlt = `${combo.brand}|${combo.caliber}|${combo.grain}gr`;
-  const qty    = (inventoryMap[key] || 0) + (inventoryMap[keyAlt] || 0);
-  return qty > 0 ? ` (${qty})` : '';
-}
-
-// ─── FIFO CORE ────────────────────────────────────────────────────────────────
-// Query Notion for all lots matching brand/caliber/grain, sorted by date asc,
-// filtered to remaining > 0
-async function getLotsForCombo(combo) {
-  const cacheKey = `${combo.brand}|${combo.caliber}|${combo.grain}`;
-  if (lotsCache[cacheKey]) return lotsCache[cacheKey];
-
-  const filters = [
-    { property: 'Caliber', rich_text: { equals: combo.caliber } },
-  ];
-  if (combo.brand) filters.push({ property: 'Brand', title: { equals: combo.brand } });
-  if (combo.grain) filters.push({ property: 'Grain', rich_text: { equals: combo.grain } });
-
-  const sorts = [{ property: 'Date', direction: 'ascending' }];
-  const data  = await notionQuery(CFG.ammoDb, { and: filters }, sorts);
-
-  const lots = data.results.map(p => {
-    const pr = p.properties;
-    const purchased = pr.Purchased?.number || 0;
-    const fired     = pr.Fired?.number     || 0;
-    const remaining = purchased - fired;
-    return {
-      id:        p.id,
-      brand:     pr.Brand?.title?.[0]?.text?.content || combo.brand,
-      caliber:   pr.Caliber?.rich_text?.[0]?.text?.content || combo.caliber,
-      grain:     pr.Grain?.rich_text?.[0]?.text?.content || combo.grain,
-      date:      pr.Date?.date?.start || '',
-      purchased, fired, remaining,
-    };
-  }).filter(l => l.remaining > 0);
-
-  lotsCache[cacheKey] = lots;
-  return lots;
-}
-
-// Compute FIFO allocation: returns { allocation: [{lot, use}], shortfall }
-function computeFifo(lots, roundsNeeded) {
-  const allocation = [];
-  let remaining = roundsNeeded;
-  for (const lot of lots) {
-    if (remaining <= 0) break;
-    const use = Math.min(lot.remaining, remaining);
-    allocation.push({ lot, use });
-    remaining -= use;
-  }
-  return { allocation, shortfall: remaining };
-}
-
-// ─── WIDGET 1: REVIEW ────────────────────────────────────────────────────────
-// w1Plan stores the computed plan awaiting confirmation
-let w1Plan = null;
-
-async function w1Review() {
+// ─── WIDGET 1: SUBMIT ────────────────────────────────────────────────────────
+async function w1Submit() {
   if (!requireConfig('w1-feedback')) return;
 
   const rangeName = getRangeName();
@@ -1656,197 +1436,77 @@ async function w1Review() {
   const rows      = [...document.querySelectorAll('.fw-row')];
 
   if (!rangeName) { setFeedback('w1-feedback', '⚠ Enter a range name.', 'error'); return; }
-  if (!date)      { setFeedback('w1-feedback', '⚠ Select a date.', 'error'); return; }
-  if (rows.length === 0) { setFeedback('w1-feedback', '⚠ Add at least one firearm.', 'error'); return; }
+  if (!date)      { setFeedback('w1-feedback', '⚠ Select a date.',      'error'); return; }
+  if (!rows.length) { setFeedback('w1-feedback', '⚠ Add at least one firearm.', 'error'); return; }
 
-  // Validate all rows
+  // Validate rows
   const sessionRows = [];
   for (const row of rows) {
     const id     = row.dataset.rowId;
-    const fw     = document.getElementById(`fw-sel-${id}`).value;
-    const combo  = getSelectedCombo(id);
+    const idx    = parseInt(document.getElementById(`fw-sel-${id}`).value);
+    const fw     = FIREARMS[idx];
     const rounds = parseInt(document.getElementById(`fw-rounds-${id}`).value);
-    if (!combo) { setFeedback('w1-feedback', `⚠ Select ammo for Firearm ${id}.`, 'error'); return; }
-    if (!rounds || rounds < 1) { setFeedback('w1-feedback', `⚠ Enter rounds fired for Firearm ${id}.`, 'error'); return; }
-    sessionRows.push({ id, fw, combo, rounds });
-  }
-
-  // Rental
-  let rentalEntry = null;
-  if (document.getElementById('w1-rental-toggle').checked) {
-    const rIdx    = parseInt(document.getElementById('w1-rental-ammo').value);
-    const rRounds = parseInt(document.getElementById('w1-rental-rounds').value);
-    if (!isNaN(rIdx) && rRounds > 0) {
-      rentalEntry = { combo: AMMO_COMBOS[rIdx], rounds: rRounds };
+    if (!rounds || rounds < 1) {
+      setFeedback('w1-feedback', `⚠ Enter rounds fired for Firearm ${id}.`, 'error');
+      return;
     }
+    sessionRows.push({ fw, rounds });
   }
 
-  // Loading state
-  const btn = document.getElementById('w1-review-btn');
+  const btn = document.getElementById('w1-submit-btn');
   btn.disabled = true;
-  document.getElementById('w1-feedback').innerHTML = '<span class="spinner"></span> Loading ammo lots from Notion...';
+  document.getElementById('w1-feedback').innerHTML = '<span class="spinner"></span> Writing to Notion...';
   document.getElementById('w1-feedback').className = 'feedback visible loading';
-  lotsCache = {};
 
   try {
-    // Compute FIFO for each row
-    const rowPlans = [];
-    for (const row of sessionRows) {
-      const lots = await getLotsForCombo(row.combo);
-      const { allocation, shortfall } = computeFifo(lots, row.rounds);
-      if (shortfall > 0) throw new Error(
-        `Insufficient ammo for ${row.combo.label}: need ${row.rounds}, only ${row.rounds - shortfall} available.`
-      );
-      rowPlans.push({ ...row, allocation });
-    }
-
-    // FIFO for rental if applicable
-    let rentalPlan = null;
-    if (rentalEntry) {
-      const lots = await getLotsForCombo(rentalEntry.combo);
-      const { allocation, shortfall } = computeFifo(lots, rentalEntry.rounds);
-      if (shortfall > 0) throw new Error(
-        `Insufficient ammo for rental ${rentalEntry.combo.label}: need ${rentalEntry.rounds}, only ${rentalEntry.rounds - shortfall} available.`
-      );
-      rentalPlan = { ...rentalEntry, allocation };
-    }
-
-    w1Plan = { rangeName, date, rowPlans, rentalPlan };
-    hideFeedback('w1-feedback');
-    renderReview(w1Plan);
-
-  } catch (e) {
-    setFeedback('w1-feedback', '✕ ' + e.message, 'error');
-  }
-  btn.disabled = false;
-}
-
-function renderReview(plan) {
-  let html = '';
-
-  // Session info
-  html += `<div class="review-section">
-    <div class="review-section-label">Session</div>
-    <div class="review-line"><span class="hl">${escH(plan.rangeName)}</span> — <span class="hl">${plan.date}</span></div>
-  </div>`;
-
-  // Range Log entries
-  html += `<div class="review-section">
-    <div class="review-section-label">Range Log entries (${plan.rowPlans.length})</div>`;
-  for (const rp of plan.rowPlans) {
-    html += `<div class="review-line">
-      <span class="hl">${escH(rp.fw)}</span> — ${escH(rp.combo.label)} — <span class="hl">${rp.rounds} rds</span>
-    </div>`;
-  }
-  html += `</div>`;
-
-  // FIFO allocations
-  html += `<div class="review-section">
-    <div class="review-section-label">Ammo Tracker — FIFO deductions</div>`;
-  for (const rp of plan.rowPlans) {
-    for (const a of rp.allocation) {
-      html += `<div class="review-line">
-        ${escH(a.lot.brand)} ${escH(a.lot.grain)} ${escH(a.lot.caliber)}
-        <span class="dim">lot ${escH(a.lot.date || 'n/d')}</span>
-        → <span class="hl">-${a.use} rds</span>
-        <span class="dim">(${a.lot.remaining} avail)</span>
-      </div>`;
-    }
-  }
-  html += `</div>`;
-
-  // Rental
-  if (plan.rentalPlan) {
-    html += `<div class="review-section">
-      <div class="review-section-label">Rental (ammo deduction only — not in Range Log)</div>
-      <div class="review-line"><span class="hl">${escH(plan.rentalPlan.combo.label)}</span> — <span class="hl">${plan.rentalPlan.rounds} rds</span></div>`;
-    for (const a of plan.rentalPlan.allocation) {
-      html += `<div class="review-line">
-        ${escH(a.lot.brand)} ${escH(a.lot.grain)} ${escH(a.lot.caliber)}
-        <span class="dim">lot ${escH(a.lot.date || 'n/d')}</span>
-        → <span class="hl">-${a.use} rds</span>
-        <span class="dim">(${a.lot.remaining} avail)</span>
-      </div>`;
-    }
-    html += `</div>`;
-  }
-
-  document.getElementById('w1-review-content').innerHTML = html;
-  document.getElementById('w1-review-modal').classList.add('open');
-}
-
-function escH(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function w1CancelReview() {
-  document.getElementById('w1-review-modal').classList.remove('open');
-  w1Plan = null;
-}
-
-// ─── WIDGET 1: CONFIRM & WRITE ────────────────────────────────────────────────
-async function w1Confirm() {
-  if (!w1Plan) return;
-  const btn = document.getElementById('w1-confirm-btn');
-  btn.disabled = true;
-
-  const showStatus = (msg) => {
-    document.getElementById('w1-feedback').innerHTML = `<span class="spinner"></span> ${escH(msg)}`;
-    document.getElementById('w1-feedback').className = 'feedback visible loading';
-  };
-
-  try {
-    // 1. Write Range Log entries (one per firearm row)
-    for (const rp of w1Plan.rowPlans) {
-      showStatus(`Writing Range Log: ${rp.fw}...`);
+    // 1. Write Range Log — one entry per firearm row
+    for (const { fw, rounds } of sessionRows) {
+      document.getElementById('w1-feedback').innerHTML =
+        `<span class="spinner"></span> Writing Range Log: ${escH(fw.label)}...`;
+      document.getElementById('w1-feedback').className = 'feedback visible loading';
       await notionCreate(CFG.rangeDb, {
-        'Range':        { title: [{ text: { content: w1Plan.rangeName } }] },
-        'Date':         { date:  { start: w1Plan.date } },
-        'Weapon':       { select: { name: rp.fw } },
-        'Rounds Fired': { number: rp.rounds },
+        'Firearm':      { title: [{ text: { content: fw.label } }] },
+        'Date':         { date:  { start: date } },
+        'Rounds Fired': { number: rounds },
       });
     }
 
-    // 2. Update Fired counts — firearm rows
-    for (const rp of w1Plan.rowPlans) {
-      for (const a of rp.allocation) {
-        showStatus(`Updating ammo lot: ${a.lot.brand} ${a.lot.caliber}...`);
-        await notionUpdate(a.lot.id, {
-          'Fired': { number: a.lot.fired + a.use },
-        });
-      }
+    // 2. Increment Fired on each Ammo Inventory row
+    // Group rounds by inventory page ID (in case same firearm appears twice)
+    const firedByPage = {};
+    for (const { fw, rounds } of sessionRows) {
+      firedByPage[fw.invId] = (firedByPage[fw.invId] || 0) + rounds;
     }
 
-    // 3. Update Fired counts — rental (if any)
-    if (w1Plan.rentalPlan) {
-      for (const a of w1Plan.rentalPlan.allocation) {
-        showStatus(`Updating rental ammo lot: ${a.lot.brand} ${a.lot.caliber}...`);
-        await notionUpdate(a.lot.id, {
-          'Fired': { number: a.lot.fired + a.use },
-        });
-      }
+    for (const [pageId, rounds] of Object.entries(firedByPage)) {
+      document.getElementById('w1-feedback').innerHTML =
+        `<span class="spinner"></span> Updating inventory...`;
+      document.getElementById('w1-feedback').className = 'feedback visible loading';
+
+      // Read current Fired value first, then increment
+      const target = `https://api.notion.com/v1/pages/${pageId}`;
+      const url    = CFG.proxy + encodeURIComponent(target);
+      const r      = await fetch(url, { method: 'GET', headers: notionHeaders() });
+      if (!r.ok) throw new Error(`Could not read inventory page ${pageId}`);
+      const page   = await r.json();
+      const currentFired = page.properties?.Fired?.number || 0;
+      await notionUpdate(pageId, {
+        'Fired': { number: currentFired + rounds },
+      });
     }
 
     // Success
-    const totalRounds = w1Plan.rowPlans.reduce((s, r) => s + r.rounds, 0)
-      + (w1Plan.rentalPlan?.rounds || 0);
+    const totalRounds = sessionRows.reduce((s, r) => s + r.rounds, 0);
+    const summary = sessionRows.map(r => `${r.fw.label}: ${r.rounds} rds`).join(' · ');
     setFeedback('w1-feedback',
-      `✓ Session logged!\n${w1Plan.rowPlans.length} Range Log ${w1Plan.rowPlans.length===1?'entry':'entries'} + ${totalRounds} rounds deducted from Ammo Tracker.`,
+      `✓ Session logged!\n${summary}\nRange Log + Inventory updated.`,
       'success'
     );
-
-    document.getElementById('w1-review-modal').classList.remove('open');
-    w1Plan = null;
 
     // Reset form
     document.getElementById('w1-fw-rows').innerHTML = '';
     fwRowCounter = 0;
-    lotsCache = {};
-    await loadInventory(); // refresh stock counts after write
-    document.getElementById('w1-rental-toggle').checked = false;
-    document.getElementById('w1-rental-section').classList.remove('open');
-    document.getElementById('w1-rental-rounds').value = '';
-    addFirearmRow(); // start fresh with one row
+    addFirearmRow();
 
   } catch (e) {
     setFeedback('w1-feedback', '✕ ' + e.message, 'error');
@@ -1854,72 +1514,110 @@ async function w1Confirm() {
   btn.disabled = false;
 }
 
-// ─── WIDGET 2: COMBO DROPDOWNS ────────────────────────────────────────────────
-// Populated from live Notion inventory at load time (same inventoryMap used by W1)
-// Each field has a dropdown of known values + a free-text fallback input
+// ─── WIDGET 2: NAME TAGS ──────────────────────────────────────────────────────
+// Known Name options from Notion schema + any newly added in this session
+const W2_NAME_OPTIONS = ['Mini Mag', 'Range Dynamics', 'Frontier Cartridge', 'Bronze', 'X-Tac', 'Blazer'];
+let w2SelectedNames = []; // array of name strings currently selected
 
+function w2InitNameDropdown() {
+  const sel = document.getElementById('w2-name-sel');
+  sel.innerHTML = '<option value="">— Add existing name —</option>' +
+    W2_NAME_OPTIONS.map(n => `<option value="${escH(n)}">${escH(n)}</option>`).join('');
+}
+
+function w2AddNameTag() {
+  const sel = document.getElementById('w2-name-sel');
+  const val = sel.value;
+  if (!val) return;
+  w2PushNameTag(val);
+  sel.value = '';
+}
+
+function w2AddNewNameTag() {
+  const inp = document.getElementById('w2-name-new');
+  const val = inp.value.trim();
+  if (!val) return;
+  w2PushNameTag(val);
+  inp.value = '';
+  // Add to dropdown for future use in this session
+  if (!W2_NAME_OPTIONS.includes(val)) {
+    W2_NAME_OPTIONS.push(val);
+    w2InitNameDropdown();
+  }
+}
+
+function w2PushNameTag(name) {
+  if (w2SelectedNames.includes(name)) return; // no duplicates
+  w2SelectedNames.push(name);
+  w2RenderNameTags();
+  w2UpdatePreview();
+}
+
+function w2RemoveNameTag(name) {
+  w2SelectedNames = w2SelectedNames.filter(n => n !== name);
+  w2RenderNameTags();
+  w2UpdatePreview();
+}
+
+function w2RenderNameTags() {
+  const container = document.getElementById('w2-name-tags');
+  container.innerHTML = w2SelectedNames.map(name => `
+    <span style="display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;
+                 padding:3px 8px;background:var(--accent-glow);border:1px solid var(--accent-dim);
+                 color:var(--accent);letter-spacing:0.06em;">
+      ${escH(name)}
+      <button onclick="w2RemoveNameTag('${escH(name)}')"
+              style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;
+                     padding:0;line-height:1;">✕</button>
+    </span>
+  `).join('');
+}
+
+// ─── WIDGET 2: DROPDOWNS & HELPERS ───────────────────────────────────────────
 async function w2PopulateDropdowns() {
-  if (!inventoryMap) return;
-  if (!CFG.token) return; // no token — skip Notion retailer fetch entirely
+  if (!CFG.token) return;
 
-  // Extract unique values from inventory keys ("brand|caliber|grain")
   const brands    = new Set();
-  const calibers  = new Set();
   const grains    = new Set();
   const retailers = new Set();
 
-  Object.keys(inventoryMap).forEach(key => {
-    const [b, c, g] = key.split('|');
-    if (b) brands.add(b);
-    if (c) calibers.add(c);
-    if (g) grains.add(g);
-  });
-
-  // Also seed brands/calibers/grains from AMMO_COMBOS so known combos always appear
-  AMMO_COMBOS.forEach(c => {
-    if (c.brand)   brands.add(c.brand);
-    if (c.caliber) calibers.add(c.caliber);
-    if (c.grain)   grains.add(c.grain);
-  });
-
-  const fill = (selId, values) => {
-    const sel = document.getElementById(selId);
-    if (!sel) return;
-    const sorted = [...values].sort();
-    sel.innerHTML = '<option value="">— Select or type below —</option>' +
-      sorted.map(v => `<option value="${v}">${v}</option>`).join('') +
-      '<option value="__other__">Other (type below)</option>';
-  };
-
-  // Pull retailer values from all Notion lots in the inventoryMap source data
-  // We re-query briefly to get retailer names — stored separately from inventoryMap keys
   try {
     const url = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/databases/${CFG.ammoDb}/query`);
-    const r = await fetch(url, { method: 'POST', headers: notionHeaders(), body: JSON.stringify({ page_size: 100 }) });
+    const r   = await fetch(url, { method: 'POST', headers: notionHeaders(), body: JSON.stringify({ page_size: 100 }) });
     if (r.ok) {
       const data = await r.json();
       data.results.forEach(p => {
-        const ret = p.properties?.Retailer?.rich_text?.[0]?.text?.content;
-        if (ret && ret.trim()) retailers.add(ret.trim());
+        const pr  = p.properties;
+        const b   = pr.Brand?.title?.[0]?.text?.content?.trim();
+        const g   = pr.Grain?.rich_text?.[0]?.text?.content?.trim();
+        const ret = pr.Retailer?.rich_text?.[0]?.text?.content?.trim();
+        if (b)   brands.add(b);
+        if (g)   grains.add(g);
+        if (ret) retailers.add(ret);
       });
     }
   } catch (_) {}
 
-  fill('w2-brand-sel',    brands);
-  fill('w2-caliber-sel',  calibers);
-  fill('w2-grain-sel',    grains);
-  fill('w2-retailer-sel', retailers);
+  const fill = (selId, values, placeholder) => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    sel.innerHTML = `<option value="">${placeholder}</option>` +
+      [...values].sort().map(v => `<option value="${escH(v)}">${escH(v)}</option>`).join('') +
+      '<option value="__other__">Other (type below)</option>';
+  };
+
+  fill('w2-brand-sel',    brands,    '— Select existing brand —');
+  fill('w2-grain-sel',    grains,    '— Select or type below —');
+  fill('w2-retailer-sel', retailers, '— Select or type below —');
+  w2InitNameDropdown();
 }
 
-// When a dropdown selection is made, push value into the text input
-// and hide the text input unless "Other" is chosen
-function w2ComboChange(field) {
+function w2SelectChange(field) {
   const selId   = `w2-${field}-sel`;
   const inputId = `w2-${field}`;
   const sel     = document.getElementById(selId);
   const inp     = document.getElementById(inputId);
   if (!sel || !inp) return;
-
   if (sel.value === '__other__' || sel.value === '') {
     inp.style.display = 'block';
     inp.value = '';
@@ -1928,7 +1626,7 @@ function w2ComboChange(field) {
     inp.style.display = 'none';
     inp.value = sel.value;
   }
-  w2UpdateLotName();
+  w2UpdatePreview();
 }
 
 function w2GetField(field) {
@@ -1936,18 +1634,19 @@ function w2GetField(field) {
   return inp ? inp.value.trim() : '';
 }
 
-function w2UpdateLotName() {
+function w2UpdatePreview() {
   const brand   = w2GetField('brand');
   const caliber = w2GetField('caliber');
   const grain   = w2GetField('grain');
+  const names   = w2SelectedNames.join(', ');
 
-  const preview = document.getElementById('w2-lot-preview');
-  const nameEl  = document.getElementById('w2-lot-name');
-  if (!preview || !nameEl) return;
+  const preview = document.getElementById('w2-preview');
+  const text    = document.getElementById('w2-preview-text');
+  if (!preview || !text) return;
 
-  if (brand || caliber || grain) {
-    const parts = [brand, caliber, grain].filter(Boolean);
-    nameEl.textContent = parts.join('-');
+  const parts = [brand, names || null, caliber, grain].filter(Boolean);
+  if (parts.length) {
+    text.textContent = parts.join(' · ');
     preview.style.display = 'block';
   } else {
     preview.style.display = 'none';
@@ -1955,15 +1654,13 @@ function w2UpdateLotName() {
 }
 
 function w2UpdatePpr() {
-  const qty   = parseInt(document.getElementById('w2-qty')?.value)   || 0;
+  const qty   = parseInt(document.getElementById('w2-qty')?.value)    || 0;
   const value = parseFloat(document.getElementById('w2-value')?.value) || 0;
   const preview = document.getElementById('w2-ppr-preview');
   const pprEl   = document.getElementById('w2-ppr-value');
   if (!preview || !pprEl) return;
-
   if (qty > 0 && value > 0) {
-    const ppr = value / qty;
-    pprEl.textContent = `$${ppr.toFixed(3)} / round   (${qty} rds × $${(value/qty).toFixed(3)} = $${value.toFixed(2)})`;
+    pprEl.textContent = `$${(value/qty).toFixed(3)} / round   (${qty} rds × $${(value/qty).toFixed(3)} = $${value.toFixed(2)})`;
     preview.style.display = 'block';
   } else {
     preview.style.display = 'none';
@@ -1974,62 +1671,83 @@ function w2UpdatePpr() {
 async function logPurchase() {
   if (!requireConfig('w2-feedback')) return;
 
-  const brand   = w2GetField('brand');
-  const caliber = w2GetField('caliber');
-  const grain   = w2GetField('grain');
-  const qty     = parseInt(document.getElementById('w2-qty').value);
-  const value   = parseFloat(document.getElementById('w2-value').value);
-  const retailer= document.getElementById('w2-retailer').value.trim();
-  const date    = document.getElementById('w2-date').value;
+  const brand    = w2GetField('brand');
+  const caliber  = w2GetField('caliber');
+  const grain    = w2GetField('grain');
+  const qty      = parseInt(document.getElementById('w2-qty').value);
+  const value    = parseFloat(document.getElementById('w2-value').value);
+  const retailer = w2GetField('retailer');
+  const date     = document.getElementById('w2-date').value;
 
-  if (!brand)           { setFeedback('w2-feedback', '⚠ Enter a brand.',    'error'); return; }
-  if (!caliber)         { setFeedback('w2-feedback', '⚠ Enter a caliber.',  'error'); return; }
-  if (!qty || qty < 1)  { setFeedback('w2-feedback', '⚠ Enter quantity.',   'error'); return; }
-  if (!value || value <= 0) { setFeedback('w2-feedback', '⚠ Enter a total value.', 'error'); return; }
+  if (!brand)               { setFeedback('w2-feedback', '⚠ Enter a brand.',    'error'); return; }
+  if (!caliber)             { setFeedback('w2-feedback', '⚠ Select a caliber.', 'error'); return; }
+  if (!qty || qty < 1)      { setFeedback('w2-feedback', '⚠ Enter quantity.',   'error'); return; }
+  if (!value || value <= 0) { setFeedback('w2-feedback', '⚠ Enter total value.','error'); return; }
 
-  // Build lot name: Brand-Caliber-Grain
-  const lotParts = [brand, caliber, grain].filter(Boolean);
-  const lotName  = lotParts.join('-');
-
-  document.getElementById('w2-feedback').innerHTML = '<span class="spinner"></span> Adding to Notion...';
+  document.getElementById('w2-feedback').innerHTML = '<span class="spinner"></span> Writing to Notion...';
   document.getElementById('w2-feedback').className = 'feedback visible loading';
 
   try {
+    // 1. Write to Ammo History (also feeds Price Trend — same data source)
     const props = {
-      'Brand':     { title: [{ text: { content: lotName } }] },
+      'Brand':     { title: [{ text: { content: brand } }] },
       'Caliber':   { rich_text: [{ text: { content: caliber } }] },
       'Grain':     { rich_text: [{ text: { content: grain } }] },
       'Purchased': { number: qty },
-      'Fired':     { number: 0 },
+      'Value':     { number: value },
       'Retailer':  { rich_text: [{ text: { content: retailer } }] },
     };
-    if (date)  props['Date']  = { date: { start: date } };
-    if (value) props['Value'] = { number: value };
-
+    if (date) props['Date'] = { date: { start: date } };
+    if (w2SelectedNames.length) {
+      props['Name'] = { multi_select: w2SelectedNames.map(n => ({ name: n })) };
+    }
     await notionCreate(CFG.ammoDb, props);
+
+    // 2. Increment Purchased on matching Ammo Inventory row
+    const invRow = FIREARMS.find(f => f.caliber === caliber);
+    if (invRow && CFG.inventoryDb) {
+      document.getElementById('w2-feedback').innerHTML =
+        '<span class="spinner"></span> Updating inventory...';
+      document.getElementById('w2-feedback').className = 'feedback visible loading';
+
+      // Read current Purchased, then increment
+      const target = `https://api.notion.com/v1/pages/${invRow.invId}`;
+      const url    = CFG.proxy + encodeURIComponent(target);
+      const r      = await fetch(url, { method: 'GET', headers: notionHeaders() });
+      if (r.ok) {
+        const page    = await r.json();
+        const current = page.properties?.Purchased?.number || 0;
+        await notionUpdate(invRow.invId, {
+          'Purchased': { number: current + qty },
+        });
+      }
+    }
 
     const ppr = `$${(value / qty).toFixed(3)}/rd`;
     setFeedback('w2-feedback',
-      `✓ Lot logged!\n${lotName}\n${qty} rds @ ${ppr} (total $${value.toFixed(2)})`,
+      `✓ Logged!\n${brand}${w2SelectedNames.length ? ' · ' + w2SelectedNames.join(', ') : ''} · ${caliber}${grain ? ' · ' + grain : ''}\n${qty} rds @ ${ppr} (total $${value.toFixed(2)})`,
       'success'
     );
 
-    // Refresh inventory so W1 dropdowns reflect the new lot
-    await loadInventory();
-    await w2PopulateDropdowns();
-
     // Reset form
+    w2SelectedNames = [];
+    w2RenderNameTags();
     ['w2-brand-sel','w2-caliber-sel','w2-grain-sel','w2-retailer-sel'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
-    ['w2-brand','w2-caliber','w2-grain','w2-qty','w2-value','w2-retailer'].forEach(id => {
+    ['w2-brand','w2-caliber','w2-grain','w2-retailer'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) { el.value = ''; el.style.display = id.endsWith('-sel') ? 'block' : 'none'; }
+      if (el) { el.value = ''; el.style.display = 'none'; }
     });
-    document.getElementById('w2-date').value = todayIso();
-    document.getElementById('w2-lot-preview').style.display  = 'none';
-    document.getElementById('w2-ppr-preview').style.display  = 'none';
+    document.getElementById('w2-qty').value      = '';
+    document.getElementById('w2-value').value    = '';
+    document.getElementById('w2-date').value     = todayIso();
+    document.getElementById('w2-preview').style.display     = 'none';
+    document.getElementById('w2-ppr-preview').style.display = 'none';
+    document.getElementById('w2-name-new').value = '';
+
+    await w2PopulateDropdowns();
 
   } catch (e) {
     setFeedback('w2-feedback', '✕ ' + e.message, 'error');
