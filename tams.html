@@ -945,6 +945,35 @@
       <div id="w1-fw-rows"></div>
       <button class="btn-secondary" onclick="addFirearmRow()" style="margin-bottom:14px;">+ Add Firearm</button>
 
+      <!-- RENTAL GUN -->
+      <div class="toggle-row" style="margin-bottom:8px;">
+        <label class="toggle-switch">
+          <input type="checkbox" id="w1-rental-toggle" onchange="toggleRental()">
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-text">Rental firearm (rounds deducted from inventory only — not logged to Range Log)</span>
+      </div>
+      <div id="w1-rental-section" style="display:none;background:var(--bg3);border:1px solid var(--border);padding:12px;margin-bottom:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Caliber</label>
+            <select id="w1-rental-caliber">
+              <option value="">— Select caliber —</option>
+              <option value="9mm">9mm</option>
+              <option value="5.56">5.56</option>
+              <option value=".223">.223</option>
+              <option value=".22 LR">.22 LR</option>
+              <option value=".38 Special">.38 Special</option>
+              <option value=".357 Magnum">.357 Magnum</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Rounds Fired</label>
+            <input type="number" id="w1-rental-rounds" min="1" placeholder="e.g. 50">
+          </div>
+        </div>
+      </div>
+
       <div style="margin-top:8px;">
         <button class="btn-primary" id="w1-submit-btn" onclick="w1Submit()">Submit to Notion</button>
       </div>
@@ -1139,11 +1168,6 @@ const CFG = {
   get rangeDb()     { return localStorage.getItem('tams_range_db') || ''; },
   get proxy()       { return localStorage.getItem('tams_proxy') || 'https://corsproxy.io/?url='; },
 };
-
-// ─── DATABASE CONSTANTS ───────────────────────────────────────────────────────
-// Ammo History has two data sources; we must target the correct collection directly.
-// The DB ID (377...) routes to the wrong source — use the collection ID instead.
-const AMMO_HISTORY_COLLECTION = '31a48b32-cb0b-8126-a070-000b6d9b0b4b';
 
 function openConfig() {
   document.getElementById('cfg-token').value        = CFG.token;
@@ -1433,6 +1457,12 @@ function onRoundsManual(id) {
   document.getElementById(`fw-rounds-${id}`).dataset.manualOverride = '1';
 }
 
+// ─── RENTAL TOGGLE ────────────────────────────────────────────────────────────
+function toggleRental() {
+  const on = document.getElementById('w1-rental-toggle').checked;
+  document.getElementById('w1-rental-section').style.display = on ? 'block' : 'none';
+}
+
 // ─── WIDGET 1: SUBMIT ────────────────────────────────────────────────────────
 async function w1Submit() {
   if (!requireConfig('w1-feedback')) return;
@@ -1484,6 +1514,17 @@ async function w1Submit() {
       firedByPage[fw.invId] = (firedByPage[fw.invId] || 0) + rounds;
     }
 
+    // 3. Handle rental — add to fired map without Range Log entry
+    const rentalCalib  = document.getElementById('w1-rental-toggle').checked
+      ? document.getElementById('w1-rental-caliber').value : '';
+    const rentalRounds = parseInt(document.getElementById('w1-rental-rounds').value) || 0;
+    if (rentalCalib && rentalRounds > 0) {
+      const rentalFw = FIREARMS.find(f => f.caliber === rentalCalib);
+      if (rentalFw) {
+        firedByPage[rentalFw.invId] = (firedByPage[rentalFw.invId] || 0) + rentalRounds;
+      }
+    }
+
     for (const [pageId, rounds] of Object.entries(firedByPage)) {
       document.getElementById('w1-feedback').innerHTML =
         `<span class="spinner"></span> Updating inventory...`;
@@ -1513,6 +1554,10 @@ async function w1Submit() {
     document.getElementById('w1-fw-rows').innerHTML = '';
     fwRowCounter = 0;
     addFirearmRow();
+    document.getElementById('w1-rental-toggle').checked = false;
+    document.getElementById('w1-rental-section').style.display = 'none';
+    document.getElementById('w1-rental-caliber').value = '';
+    document.getElementById('w1-rental-rounds').value  = '';
 
   } catch (e) {
     setFeedback('w1-feedback', '✕ ' + e.message, 'error');
@@ -1540,7 +1585,7 @@ async function w2PopulateDropdowns() {
   const retailers = new Set();
 
   try {
-    const url = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/databases/${AMMO_HISTORY_COLLECTION}/query`);
+    const url = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/databases/${CFG.ammoDb}/query`);
     const r   = await fetch(url, { method: 'POST', headers: notionHeaders(), body: JSON.stringify({ page_size: 100 }) });
     if (r.ok) {
       const data = await r.json();
@@ -1658,7 +1703,7 @@ async function logPurchase() {
     };
     if (date) props['Date'] = { date: { start: date } };
     if (name) props['Name'] = { multi_select: [{ name }] };
-    await notionCreate(AMMO_HISTORY_COLLECTION, props);
+    await notionCreate(CFG.ammoDb, props);
 
     // 2. Increment Purchased on matching Ammo Inventory row
     const invRow = FIREARMS.find(f => f.caliber === caliber);
@@ -1868,7 +1913,7 @@ async function w3LoadAvgPaid() {
     setFeedback('w3-feedback', '<span class="spinner"></span> Loading usual buys...', 'loading');
 
     const allLots = await notionQuery(
-      AMMO_HISTORY_COLLECTION,
+      CFG.ammoDb,
       null,  // no filter — all records
       [{ property: 'Date', direction: 'descending' }]
     );
@@ -1968,7 +2013,7 @@ async function w3FetchAvgPaid(calDef) {
   }));
 
   try {
-    const data = await notionQuery(AMMO_HISTORY_COLLECTION,
+    const data = await notionQuery(CFG.ammoDb,
       { or: calFilters },
       [{ property: 'Date', direction: 'descending' }]
     );
