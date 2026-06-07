@@ -976,16 +976,10 @@
       <!-- NAME (product line) -->
       <div class="field">
         <label>Name <span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.08em;">(product line)</span></label>
-        <div id="w2-name-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;min-height:24px;"></div>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <select id="w2-name-sel" style="flex:1;" onchange="w2AddNameTag()">
-            <option value="">— Add existing name —</option>
-          </select>
-          <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">or</span>
-          <input type="text" id="w2-name-new" placeholder="Type new name + Enter"
-            style="flex:1;" onkeydown="if(event.key==='Enter'){w2AddNewNameTag();}">
-          <button class="btn-secondary" style="padding:0 12px;font-size:13px;line-height:1;" onclick="w2AddNewNameTag()">+</button>
-        </div>
+        <select id="w2-name-sel" onchange="w2SelectChange('name')">
+          <option value="">— Select existing name —</option>
+        </select>
+        <input type="text" id="w2-name" placeholder="Or type new name" style="margin-top:6px;display:none;" oninput="w2UpdatePreview()">
       </div>
 
       <!-- CALIBER -->
@@ -1521,63 +1515,15 @@ async function w1Submit() {
   btn.disabled = false;
 }
 
-// ─── WIDGET 2: NAME TAGS ──────────────────────────────────────────────────────
-// Known Name options from Notion schema + any newly added in this session
+// ─── WIDGET 2: NAME DROPDOWN ─────────────────────────────────────────────────
 const W2_NAME_OPTIONS = ['Mini Mag', 'Range Dynamics', 'Frontier Cartridge', 'Bronze', 'X-Tac', 'Blazer'];
-let w2SelectedNames = []; // array of name strings currently selected
 
 function w2InitNameDropdown() {
   const sel = document.getElementById('w2-name-sel');
-  sel.innerHTML = '<option value="">— Add existing name —</option>' +
-    W2_NAME_OPTIONS.map(n => `<option value="${escH(n)}">${escH(n)}</option>`).join('');
-}
-
-function w2AddNameTag() {
-  const sel = document.getElementById('w2-name-sel');
-  const val = sel.value;
-  if (!val) return;
-  w2PushNameTag(val);
-  sel.value = '';
-}
-
-function w2AddNewNameTag() {
-  const inp = document.getElementById('w2-name-new');
-  const val = inp.value.trim();
-  if (!val) return;
-  w2PushNameTag(val);
-  inp.value = '';
-  // Add to dropdown for future use in this session
-  if (!W2_NAME_OPTIONS.includes(val)) {
-    W2_NAME_OPTIONS.push(val);
-    w2InitNameDropdown();
-  }
-}
-
-function w2PushNameTag(name) {
-  if (w2SelectedNames.includes(name)) return; // no duplicates
-  w2SelectedNames.push(name);
-  w2RenderNameTags();
-  w2UpdatePreview();
-}
-
-function w2RemoveNameTag(name) {
-  w2SelectedNames = w2SelectedNames.filter(n => n !== name);
-  w2RenderNameTags();
-  w2UpdatePreview();
-}
-
-function w2RenderNameTags() {
-  const container = document.getElementById('w2-name-tags');
-  container.innerHTML = w2SelectedNames.map(name => `
-    <span style="display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;
-                 padding:3px 8px;background:var(--accent-glow);border:1px solid var(--accent-dim);
-                 color:var(--accent);letter-spacing:0.06em;">
-      ${escH(name)}
-      <button onclick="w2RemoveNameTag('${escH(name)}')"
-              style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;
-                     padding:0;line-height:1;">✕</button>
-    </span>
-  `).join('');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select existing name —</option>' +
+    W2_NAME_OPTIONS.map(n => `<option value="${escH(n)}">${escH(n)}</option>`).join('') +
+    '<option value="__other__">Other (type below)</option>';
 }
 
 // ─── WIDGET 2: DROPDOWNS & HELPERS ───────────────────────────────────────────
@@ -1616,7 +1562,7 @@ async function w2PopulateDropdowns() {
   fill('w2-brand-sel',    brands,    '— Select existing brand —');
   fill('w2-grain-sel',    grains,    '— Select or type below —');
   fill('w2-retailer-sel', retailers, '— Select or type below —');
-  w2InitNameDropdown();
+  w2InitNameDropdown(); // always refresh Name from static list
 }
 
 function w2SelectChange(field) {
@@ -1643,15 +1589,15 @@ function w2GetField(field) {
 
 function w2UpdatePreview() {
   const brand   = w2GetField('brand');
+  const name    = w2GetField('name');
   const caliber = w2GetField('caliber');
   const grain   = w2GetField('grain');
-  const names   = w2SelectedNames.join(', ');
 
   const preview = document.getElementById('w2-preview');
   const text    = document.getElementById('w2-preview-text');
   if (!preview || !text) return;
 
-  const parts = [brand, names || null, caliber, grain].filter(Boolean);
+  const parts = [brand, name || null, caliber, grain].filter(Boolean);
   if (parts.length) {
     text.textContent = parts.join(' · ');
     preview.style.display = 'block';
@@ -1679,6 +1625,7 @@ async function logPurchase() {
   if (!requireConfig('w2-feedback')) return;
 
   const brand    = w2GetField('brand');
+  const name     = w2GetField('name');
   const caliber  = w2GetField('caliber');
   const grain    = w2GetField('grain');
   const qty      = parseInt(document.getElementById('w2-qty').value);
@@ -1705,9 +1652,7 @@ async function logPurchase() {
       'Retailer':  { rich_text: [{ text: { content: retailer } }] },
     };
     if (date) props['Date'] = { date: { start: date } };
-    if (w2SelectedNames.length) {
-      props['Name'] = { multi_select: w2SelectedNames.map(n => ({ name: n })) };
-    }
+    if (name) props['Name'] = { multi_select: [{ name }] };
     await notionCreate(CFG.ammoDb, props);
 
     // 2. Increment Purchased on matching Ammo Inventory row
@@ -1732,18 +1677,16 @@ async function logPurchase() {
 
     const ppr = `$${(value / qty).toFixed(3)}/rd`;
     setFeedback('w2-feedback',
-      `✓ Logged!\n${brand}${w2SelectedNames.length ? ' · ' + w2SelectedNames.join(', ') : ''} · ${caliber}${grain ? ' · ' + grain : ''}\n${qty} rds @ ${ppr} (total $${value.toFixed(2)})`,
+      `✓ Logged!\n${brand}${name ? ' · ' + name : ''} · ${caliber}${grain ? ' · ' + grain : ''}\n${qty} rds @ ${ppr} (total $${value.toFixed(2)})`,
       'success'
     );
 
     // Reset form
-    w2SelectedNames = [];
-    w2RenderNameTags();
-    ['w2-brand-sel','w2-caliber-sel','w2-grain-sel','w2-retailer-sel'].forEach(id => {
+    ['w2-brand-sel','w2-name-sel','w2-caliber-sel','w2-grain-sel','w2-retailer-sel'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
-    ['w2-brand','w2-caliber','w2-grain','w2-retailer'].forEach(id => {
+    ['w2-brand','w2-name','w2-caliber','w2-grain','w2-retailer'].forEach(id => {
       const el = document.getElementById(id);
       if (el) { el.value = ''; el.style.display = 'none'; }
     });
@@ -1752,7 +1695,6 @@ async function logPurchase() {
     document.getElementById('w2-date').value     = todayIso();
     document.getElementById('w2-preview').style.display     = 'none';
     document.getElementById('w2-ppr-preview').style.display = 'none';
-    document.getElementById('w2-name-new').value = '';
 
     await w2PopulateDropdowns();
 
