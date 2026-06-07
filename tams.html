@@ -1320,12 +1320,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 // ─── WIDGET 1: CONSTANTS ──────────────────────────────────────────────────────
 // Firearm display name → { caliber, inventoryPageId }
 const FIREARMS = [
-  { label: 'AR-15 "Frank" (5.56)',  caliber: '5.56',         invId: '37848b32-cb0b-809f-b3d6-d4e744926288', magKey: 'frank556' },
-  { label: 'AR-15 "Frank" (.223)',  caliber: '.223',          invId: '37848b32-cb0b-80de-b6d3-c0fe50b85ae6', magKey: 'frank223' },
-  { label: 'Girsan MC X',           caliber: '9mm',           invId: '37848b32-cb0b-8043-9e7d-fb0893d73b06', magKey: 'girsan'   },
-  { label: '.22 Buckmark',          caliber: '.22 LR',        invId: '37848b32-cb0b-8014-8494-df992fc0e803', magKey: 'buckmark' },
-  { label: 'S&W 1854 (.38 Spl)',    caliber: '.38 Special',   invId: '37848b32-cb0b-8057-a3df-c9c8a35ce3e8', magKey: 'sw38'     },
-  { label: 'S&W 1854 (.357 Mag)',   caliber: '.357 Magnum',   invId: '37848b32-cb0b-802f-b99c-ed531fc8307f', magKey: 'sw357'    },
+  { label: 'AR-15 "Frank" (5.56)',  notionName: 'AR-15 "Frank"',       caliber: '5.56',         invId: '37848b32-cb0b-809f-b3d6-d4e744926288', rlId: '37848b32-cb0b-80c8-b0c8-c91e2bdd8ce9', magKey: 'frank556' },
+  { label: 'AR-15 "Frank" (.223)',  notionName: 'AR-15 "Frank"',       caliber: '.223',          invId: '37848b32-cb0b-80de-b6d3-c0fe50b85ae6', rlId: '37848b32-cb0b-80c8-b0c8-c91e2bdd8ce9', magKey: 'frank223' },
+  { label: 'Girsan Regard MC X',    notionName: 'Girsan Regard MC X',  caliber: '9mm',           invId: '37848b32-cb0b-8043-9e7d-fb0893d73b06', rlId: '37848b32-cb0b-80cb-b161-e94c5bf5b63b', magKey: 'girsan'   },
+  { label: 'Browning Buckmark',     notionName: 'Browning Buckmark',   caliber: '.22 LR',        invId: '37848b32-cb0b-8014-8494-df992fc0e803', rlId: '37848b32-cb0b-80e9-a745-ee33727dd6ae', magKey: 'buckmark' },
+  { label: 'S&W 1854 (.38 Spl)',    notionName: 'Smith & Wesson 1854', caliber: '.38 Special',   invId: '37848b32-cb0b-8057-a3df-c9c8a35ce3e8', rlId: '37848b32-cb0b-809e-a8f4-f7347a9d8531', magKey: 'sw38'     },
+  { label: 'S&W 1854 (.357 Mag)',   notionName: 'Smith & Wesson 1854', caliber: '.357 Magnum',   invId: '37848b32-cb0b-802f-b99c-ed531fc8307f', rlId: '37848b32-cb0b-809e-a8f4-f7347a9d8531', magKey: 'sw357'    },
 ];
 
 const MAG_DEFAULTS_KEY = 'tams_mag_defaults_v3';
@@ -1495,15 +1495,24 @@ async function w1Submit() {
   document.getElementById('w1-feedback').className = 'feedback visible loading';
 
   try {
-    // 1. Write Range Log — one entry per firearm row
+    // 1. Increment Rounds Fired on each Range Log row (one row per firearm, running total)
+    // Group rounds by rlId in case both Frank calibers are used in same session
+    const rlByPage = {};
     for (const { fw, rounds } of sessionRows) {
+      rlByPage[fw.rlId] = (rlByPage[fw.rlId] || 0) + rounds;
+    }
+    for (const [pageId, rounds] of Object.entries(rlByPage)) {
       document.getElementById('w1-feedback').innerHTML =
-        `<span class="spinner"></span> Writing Range Log: ${escH(fw.label)}...`;
+        `<span class="spinner"></span> Updating Range Log...`;
       document.getElementById('w1-feedback').className = 'feedback visible loading';
-      await notionCreate(CFG.rangeDb, {
-        'Firearm':      { title: [{ text: { content: fw.label } }] },
-        'Date':         { date:  { start: date } },
-        'Rounds Fired': { number: rounds },
+      const target = `https://api.notion.com/v1/pages/${pageId}`;
+      const url    = CFG.proxy + encodeURIComponent(target);
+      const r      = await fetch(url, { method: 'GET', headers: notionHeaders() });
+      if (!r.ok) throw new Error(`Could not read Range Log page ${pageId}`);
+      const page   = await r.json();
+      const currentRl = page.properties?.['Rounds Fired']?.number || 0;
+      await notionUpdate(pageId, {
+        'Rounds Fired': { number: currentRl + rounds },
       });
     }
 
