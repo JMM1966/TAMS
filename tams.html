@@ -1140,6 +1140,11 @@ const CFG = {
   get proxy()       { return localStorage.getItem('tams_proxy') || 'https://corsproxy.io/?url='; },
 };
 
+// ─── DATABASE CONSTANTS ───────────────────────────────────────────────────────
+// Ammo History has two data sources; we must target the correct collection directly.
+// The DB ID (377...) routes to the wrong source — use the collection ID instead.
+const AMMO_HISTORY_COLLECTION = '31a48b32-cb0b-8126-a070-000b6d9b0b4b';
+
 function openConfig() {
   document.getElementById('cfg-token').value        = CFG.token;
   document.getElementById('cfg-ammo-db').value      = CFG.ammoDb;
@@ -1535,7 +1540,7 @@ async function w2PopulateDropdowns() {
   const retailers = new Set();
 
   try {
-    const url = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/databases/${CFG.ammoDb}/query`);
+    const url = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/databases/${AMMO_HISTORY_COLLECTION}/query`);
     const r   = await fetch(url, { method: 'POST', headers: notionHeaders(), body: JSON.stringify({ page_size: 100 }) });
     if (r.ok) {
       const data = await r.json();
@@ -1653,7 +1658,7 @@ async function logPurchase() {
     };
     if (date) props['Date'] = { date: { start: date } };
     if (name) props['Name'] = { multi_select: [{ name }] };
-    await notionCreate(CFG.ammoDb, props);
+    await notionCreate(AMMO_HISTORY_COLLECTION, props);
 
     // 2. Increment Purchased on matching Ammo Inventory row
     const invRow = FIREARMS.find(f => f.caliber === caliber);
@@ -1863,7 +1868,7 @@ async function w3LoadAvgPaid() {
     setFeedback('w3-feedback', '<span class="spinner"></span> Loading usual buys...', 'loading');
 
     const allLots = await notionQuery(
-      CFG.ammoDb,
+      AMMO_HISTORY_COLLECTION,
       null,  // no filter — all records
       [{ property: 'Date', direction: 'descending' }]
     );
@@ -1963,7 +1968,7 @@ async function w3FetchAvgPaid(calDef) {
   }));
 
   try {
-    const data = await notionQuery(CFG.ammoDb,
+    const data = await notionQuery(AMMO_HISTORY_COLLECTION,
       { or: calFilters },
       [{ property: 'Date', direction: 'descending' }]
     );
