@@ -977,12 +977,14 @@
       <div class="field">
         <label>Name <span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.08em;">(product line)</span></label>
         <div id="w2-name-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;min-height:24px;"></div>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;gap:6px;align-items:center;">
           <select id="w2-name-sel" style="flex:1;" onchange="w2AddNameTag()">
             <option value="">— Add existing name —</option>
           </select>
-          <input type="text" id="w2-name-new" placeholder="New name..." style="flex:1;" onkeydown="if(event.key==='Enter'){w2AddNewNameTag();}">
-          <button class="btn-secondary" style="padding:0 10px;font-size:11px;" onclick="w2AddNewNameTag()">+</button>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">or</span>
+          <input type="text" id="w2-name-new" placeholder="Type new name + Enter"
+            style="flex:1;" onkeydown="if(event.key==='Enter'){w2AddNewNameTag();}">
+          <button class="btn-secondary" style="padding:0 12px;font-size:13px;line-height:1;" onclick="w2AddNewNameTag()">+</button>
         </div>
       </div>
 
@@ -1286,6 +1288,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('w1-range-other-field').style.display = 'none';
   updateStatus();
   w3InitLinks();
+  w2InitNameDropdown(); // always init Name tags regardless of token
   addFirearmRow();
   if (CFG.token) { await w2PopulateDropdowns(); }
   w4LoadWatchlist();
