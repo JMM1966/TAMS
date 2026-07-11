@@ -872,7 +872,7 @@
 <div class="ticker-bar" id="ticker">
   <span class="ticker-item">T.A.M.S. v2.0</span>
   <span class="ticker-item">NOTION: <span id="ticker-notion">OFFLINE</span></span>
-  <span class="ticker-item">WEAPONS: AR-15 "Frank" / Girsan MC X / .22 Buckmark / S&W 1854</span>
+  <span class="ticker-item">WEAPONS: AR-15 "Frank" / Girsan MC X / .22 Buckmark / S&W 1854 / Walther PDP-F</span>
   <span class="ticker-item">PROXY: corsproxy.io</span>
 </div>
 
@@ -916,6 +916,10 @@
         <div class="mag-default-row">
           <span class="mag-default-label">S&amp;W 1854 (.357 Mag) — rounds/cylinder</span>
           <input type="number" id="md-sw357" min="0" placeholder="8">
+        </div>
+        <div class="mag-default-row">
+          <span class="mag-default-label">Walther PDP-F — rounds/mag</span>
+          <input type="number" id="md-pdpf" min="0" placeholder="14">
         </div>
         <button class="btn-secondary" onclick="saveMagDefaults()" style="margin-top:8px;width:auto;padding:6px 20px;">Save Defaults</button>
         <span id="md-saved" style="font-family:var(--mono);font-size:10px;color:var(--green);margin-left:10px;display:none;">Saved.</span>
@@ -1326,6 +1330,7 @@ const FIREARMS = [
   { label: 'Browning Buckmark',     notionName: 'Browning Buckmark',   caliber: '.22 LR',        invId: '37848b32-cb0b-8014-8494-df992fc0e803', rlId: '37848b32-cb0b-80e9-a745-ee33727dd6ae', magKey: 'buckmark' },
   { label: 'S&W 1854 (.38 Spl)',    notionName: 'Smith & Wesson 1854', caliber: '.38 Special',   invId: '37848b32-cb0b-8057-a3df-c9c8a35ce3e8', rlId: '37848b32-cb0b-809e-a8f4-f7347a9d8531', magKey: 'sw38'     },
   { label: 'S&W 1854 (.357 Mag)',   notionName: 'Smith & Wesson 1854', caliber: '.357 Magnum',   invId: '37848b32-cb0b-802f-b99c-ed531fc8307f', rlId: '37848b32-cb0b-809e-a8f4-f7347a9d8531', magKey: 'sw357'    },
+  { label: 'Walther PDP-F',         notionName: 'Walther PDP-F',        caliber: '9mm',           invId: '37848b32-cb0b-8043-9e7d-fb0893d73b06', rlId: '39a48b32-cb0b-8040-8897-f99670373de3', magKey: 'pdpf'      },
 ];
 
 const MAG_DEFAULTS_KEY = 'tams_mag_defaults_v3';
@@ -1337,7 +1342,7 @@ function getMagDefaults() {
 
 function defaultRpmForFirearm(magKey) {
   const d = getMagDefaults();
-  const defaults = { frank556: 30, frank223: 30, girsan: 17, buckmark: 10, sw38: 8, sw357: 8 };
+  const defaults = { frank556: 30, frank223: 30, girsan: 17, buckmark: 10, sw38: 8, sw357: 8, pdpf: 14 };
   return d[magKey] ?? defaults[magKey] ?? 0;
 }
 
@@ -1352,6 +1357,7 @@ function toggleMagDefaults() {
     document.getElementById('md-buckmark').value  = d.buckmark ?? 10;
     document.getElementById('md-sw38').value      = d.sw38     ?? 8;
     document.getElementById('md-sw357').value     = d.sw357    ?? 8;
+    document.getElementById('md-pdpf').value      = d.pdpf     ?? 14;
   }
   p.classList.toggle('open');
 }
@@ -1364,6 +1370,7 @@ function saveMagDefaults() {
     buckmark: parseInt(document.getElementById('md-buckmark').value)  || 0,
     sw38:     parseInt(document.getElementById('md-sw38').value)      || 0,
     sw357:    parseInt(document.getElementById('md-sw357').value)     || 0,
+    pdpf:     parseInt(document.getElementById('md-pdpf').value)      || 0,
   }));
   const saved = document.getElementById('md-saved');
   saved.style.display = 'inline';
