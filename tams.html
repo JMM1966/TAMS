@@ -1078,6 +1078,25 @@
     </div>
   </div>
 
+  <!-- WIDGET 5: PHYSICAL INVENTORY RECONCILIATION -->
+  <div class="widget">
+    <div class="widget-header">
+      <div class="widget-title-group">
+        <span class="widget-num">W-05</span>
+        <span class="widget-title">Physical Count</span>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="section-label">Reconcile Actual Rounds On Hand</div>
+
+      <div id="w5-rows"></div>
+      <button class="btn-secondary" onclick="w5AddRow()" style="margin-bottom:14px;">+ Add Caliber</button>
+
+      <button class="btn-primary" id="w5-submit-btn" onclick="w5Submit()">Update Inventory</button>
+      <div class="feedback" id="w5-feedback"></div>
+    </div>
+  </div>
+
   <!-- WIDGET 3: AMMO PRICE MONITOR -->
   <div class="widget" style="grid-column: 1 / -1;">
     <div class="widget-header">
@@ -1760,6 +1779,153 @@ async function logPurchase() {
   } catch (e) {
     setFeedback('w2-feedback', '✕ ' + e.message, 'error');
   }
+}
+
+// ─── WIDGET 5: PHYSICAL INVENTORY RECONCILIATION ─────────────────────────────
+
+// Caliber → Inventory page ID + optional Range Log page ID
+// rlId: null means no Range Log update for that caliber (9mm)
+const W5_CALIBERS = [
+  { label: '9mm',          invId: '37848b32-cb0b-8043-9e7d-fb0893d73b06', rlId: null },
+  { label: '5.56',         invId: '37848b32-cb0b-809f-b3d6-d4e744926288', rlId: '37848b32-cb0b-80c8-b0c8-c91e2bdd8ce9' },
+  { label: '.223',         invId: '3ed48b32-cb0b-81e3-afef-d0112414c917', rlId: '37848b32-cb0b-80c8-b0c8-c91e2bdd8ce9' },
+  { label: '.22 LR',       invId: '37848b32-cb0b-8014-8494-df992fc0e803', rlId: '37848b32-cb0b-80e9-a745-ee33727dd6ae' },
+  { label: '.38 Special',  invId: '37848b32-cb0b-8057-a3df-c9c8a35ce3e8', rlId: '37848b32-cb0b-809e-a8f4-f7347a9d8531' },
+  { label: '.357 Magnum',  invId: '37848b32-cb0b-802f-b99c-ed531fc8307f', rlId: '37848b32-cb0b-809e-a8f4-f7347a9d8531' },
+];
+
+let w5RowCounter = 0;
+
+function w5AddRow() {
+  w5RowCounter++;
+  const id = w5RowCounter;
+  // Filter out calibers already added
+  const usedCalibers = [...document.querySelectorAll('.w5-row select')]
+    .map(s => s.value);
+  const available = W5_CALIBERS.filter(c => !usedCalibers.includes(c.label));
+  if (available.length === 0) {
+    setFeedback('w5-feedback', '⚠ All calibers already added.', 'error');
+    return;
+  }
+
+  const div = document.createElement('div');
+  div.className = 'w5-row';
+  div.dataset.rowId = id;
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-bottom:10px;';
+  div.innerHTML = `
+    <div class="field" style="margin-bottom:0;">
+      <label>Caliber</label>
+      <select id="w5-cal-${id}" class="w5-caliber-sel">
+        ${available.map(c => `<option value="${c.label}">${c.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label>Actual Rounds On Hand</label>
+      <input type="number" id="w5-count-${id}" min="0" placeholder="e.g. 150">
+    </div>
+    <button class="fw-remove-btn" onclick="w5RemoveRow(${id})" style="margin-bottom:2px;">✕</button>
+  `;
+  document.getElementById('w5-rows').appendChild(div);
+  hideFeedback('w5-feedback');
+}
+
+function w5RemoveRow(id) {
+  const el = document.querySelector(`.w5-row[data-row-id="${id}"]`);
+  if (el) el.remove();
+}
+
+async function w5Submit() {
+  if (!requireConfig('w5-feedback')) return;
+
+  const rows = [...document.querySelectorAll('.w5-row')];
+  if (!rows.length) {
+    setFeedback('w5-feedback', '⚠ Add at least one caliber.', 'error');
+    return;
+  }
+
+  // Validate all rows have a count entered
+  const entries = [];
+  for (const row of rows) {
+    const id      = row.dataset.rowId;
+    const label   = document.getElementById(`w5-cal-${id}`).value;
+    const count   = parseInt(document.getElementById(`w5-count-${id}`).value);
+    const calDef  = W5_CALIBERS.find(c => c.label === label);
+    if (isNaN(count) || count < 0) {
+      setFeedback('w5-feedback', `⚠ Enter a valid count for ${label}.`, 'error');
+      return;
+    }
+    entries.push({ label, count, calDef });
+  }
+
+  const btn = document.getElementById('w5-submit-btn');
+  btn.disabled = true;
+  const w5fb = document.getElementById('w5-feedback');
+  const w5status = (msg) => { w5fb.innerHTML = `<span class="spinner"></span> ${msg}`; w5fb.className = 'feedback visible loading'; };
+
+  w5status('Reading current inventory...');
+
+  try {
+    const results = [];
+
+    for (const { label, count, calDef } of entries) {
+      // 1. Read current Inventory row
+      const invUrl = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/pages/${calDef.invId}`);
+      const invR   = await fetch(invUrl, { method: 'GET', headers: notionHeaders() });
+      if (!invR.ok) throw new Error(`Could not read inventory for ${label}`);
+      const invPage    = await invR.json();
+      const purchased  = invPage.properties?.Purchased?.number || 0;
+      const oldFired   = invPage.properties?.Fired?.number    || 0;
+      const newFired   = purchased - count;
+
+      if (newFired < 0) {
+        throw new Error(`${label}: actual count (${count}) exceeds purchased (${purchased}). Check your numbers.`);
+      }
+
+      const firedDelta = newFired - oldFired;
+      results.push({ label, purchased, oldFired, newFired, firedDelta, calDef });
+    }
+
+    // 2. Write all inventory updates
+    for (const r of results) {
+      w5status(`Updating ${escH(r.label)} inventory...`);
+      await notionUpdate(r.calDef.invId, { 'Fired': { number: r.newFired } });
+    }
+
+    // 3. Update Range Log — group delta by rlId (5.56 + .223 share Frank's row)
+    const rlDeltas = {};
+    for (const r of results) {
+      if (r.calDef.rlId && r.firedDelta !== 0) {
+        rlDeltas[r.calDef.rlId] = (rlDeltas[r.calDef.rlId] || 0) + r.firedDelta;
+      }
+    }
+
+    for (const [rlId, delta] of Object.entries(rlDeltas)) {
+      w5status('Updating Range Log...');
+      const rlUrl  = CFG.proxy + encodeURIComponent(`https://api.notion.com/v1/pages/${rlId}`);
+      const rlR    = await fetch(rlUrl, { method: 'GET', headers: notionHeaders() });
+      if (!rlR.ok) throw new Error(`Could not read Range Log row`);
+      const rlPage = await rlR.json();
+      const currentRl = rlPage.properties?.['Rounds Fired']?.number || 0;
+      await notionUpdate(rlId, { 'Rounds Fired': { number: currentRl + delta } });
+    }
+
+    // Success summary
+    const summary = results.map(r => {
+      const direction = r.firedDelta > 0 ? `+${r.firedDelta}` : `${r.firedDelta}`;
+      const rlNote    = r.calDef.rlId ? ' · Range Log updated' : '';
+      return `${r.label}: ${r.purchased - r.newFired} on hand · Fired adjusted ${direction}${rlNote}`;
+    }).join('\n');
+
+    setFeedback('w5-feedback', `✓ Inventory reconciled!\n${summary}`, 'success');
+
+    // Reset rows
+    document.getElementById('w5-rows').innerHTML = '';
+    w5RowCounter = 0;
+
+  } catch (e) {
+    setFeedback('w5-feedback', '✕ ' + e.message, 'error');
+  }
+  btn.disabled = false;
 }
 
 // ─── NO ANTHROPIC API CALLS IN W3/W4 ────────────────────────────────────────
